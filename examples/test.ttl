@@ -1,0 +1,364 @@
+@prefix on7o: <https://on7o.org/ontology#> .
+@prefix ex:   <https://on7o.org/resource/> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+
+
+#################################################################
+# Ontology
+#################################################################
+
+on7o:Ontology
+    a owl:Ontology ;
+    rdfs:label "on7o Personal Knowledge Ontology"@en ;
+    rdfs:comment """
+        Ontology for representing thoughts, people, organizations,
+        topics, decisions and knowledge acquired by on7o.
+    """@en .
+
+
+#################################################################
+# Core classes
+#################################################################
+
+on7o:Entity
+    a owl:Class .
+
+on7o:Person
+    a owl:Class ;
+    rdfs:subClassOf on7o:Entity .
+
+on7o:Organization
+    a owl:Class ;
+    rdfs:subClassOf on7o:Entity .
+
+on7o:Topic
+    a owl:Class ;
+    rdfs:subClassOf on7o:Entity .
+
+on7o:Event
+    a owl:Class ;
+    rdfs:subClassOf on7o:Entity .
+
+on7o:Meeting
+    a owl:Class ;
+    rdfs:subClassOf on7o:Event .
+
+on7o:Appointment
+    a owl:Class ;
+    rdfs:subClassOf on7o:Event .
+
+on7o:Thought
+    a owl:Class .
+
+on7o:Claim
+    a owl:Class .
+
+on7o:Question
+    a owl:Class .
+
+on7o:KnowledgeStatus
+    a owl:Class .
+
+
+#################################################################
+# Knowledge status
+#################################################################
+
+on7o:Asserted
+    a on7o:KnowledgeStatus ;
+    rdfs:label "Asserted by the user"@en .
+
+on7o:Inferred
+    a on7o:KnowledgeStatus ;
+    rdfs:label "Inferred from existing knowledge"@en .
+
+on7o:Hypothesized
+    a on7o:KnowledgeStatus ;
+    rdfs:label "Hypothesized by an LLM"@en .
+
+
+#################################################################
+# Object properties
+#################################################################
+
+on7o:mentions
+    a owl:ObjectProperty ;
+    rdfs:domain on7o:Thought ;
+    rdfs:range on7o:Entity .
+
+on7o:relatedTo
+    a owl:ObjectProperty ;
+    rdfs:domain on7o:Entity ;
+    rdfs:range on7o:Entity .
+
+on7o:memberOf
+    a owl:ObjectProperty ;
+    rdfs:domain on7o:Person ;
+    rdfs:range on7o:Organization .
+
+on7o:hasChild
+    a owl:ObjectProperty ;
+    rdfs:domain on7o:Person ;
+    rdfs:range on7o:Person .
+
+on7o:concerns
+    a owl:ObjectProperty ;
+    rdfs:domain on7o:Event ;
+    rdfs:range on7o:Entity .
+
+on7o:hasTopic
+    a owl:ObjectProperty ;
+    rdfs:domain on7o:Meeting ;
+    rdfs:range on7o:Topic .
+
+on7o:requiresDecisionAbout
+    a owl:ObjectProperty ;
+    rdfs:domain on7o:Meeting ;
+    rdfs:range on7o:Topic .
+
+on7o:derivedFrom
+    a owl:ObjectProperty ;
+    rdfs:domain on7o:Claim ;
+    rdfs:range on7o:Thought .
+
+on7o:knowledgeStatus
+    a owl:ObjectProperty ;
+    rdfs:domain on7o:Claim ;
+    rdfs:range on7o:KnowledgeStatus .
+
+on7o:questionAbout
+    a owl:ObjectProperty ;
+    rdfs:domain on7o:Question ;
+    rdfs:range on7o:Entity .
+
+on7o:triggeredBy
+    a owl:ObjectProperty ;
+    rdfs:domain on7o:Question ;
+    rdfs:range on7o:Thought .
+
+
+#################################################################
+# Datatype properties
+#################################################################
+
+on7o:text
+    a owl:DatatypeProperty ;
+    rdfs:range xsd:string .
+
+on7o:capturedAt
+    a owl:DatatypeProperty ;
+    rdfs:domain on7o:Thought ;
+    rdfs:range xsd:dateTime .
+
+on7o:confidence
+    a owl:DatatypeProperty ;
+    rdfs:range xsd:decimal .
+
+on7o:answered
+    a owl:DatatypeProperty ;
+    rdfs:domain on7o:Question ;
+    rdfs:range xsd:boolean .
+
+
+#################################################################
+# User
+#################################################################
+
+ex:User
+    a on7o:Person ;
+    rdfs:label "User" .
+
+
+#################################################################
+# People
+#################################################################
+
+ex:Ana
+    a on7o:Person ;
+    rdfs:label "Ana" .
+
+ex:User
+    on7o:hasChild ex:Ana .
+
+
+#################################################################
+# Organizations
+#################################################################
+
+ex:SciCrop
+    a on7o:Organization ;
+    rdfs:label "SciCrop" .
+
+ex:User
+    on7o:memberOf ex:SciCrop .
+
+
+#################################################################
+# Topics
+#################################################################
+
+ex:MergersAndAcquisitions
+    a on7o:Topic ;
+    rdfs:label "Mergers and Acquisitions"@en ;
+    rdfs:label "Fusões e Aquisições"@pt-BR .
+
+ex:FutureOfSciCrop
+    a on7o:Topic ;
+    rdfs:label "Future of SciCrop"@en ;
+    on7o:relatedTo ex:SciCrop .
+
+ex:MergersAndAcquisitions
+    on7o:relatedTo ex:SciCrop .
+
+
+#################################################################
+# Thought #1
+#
+# "Lembrar de marcar o dentista da Ana"
+#################################################################
+
+ex:Thought-2026-08-12-001
+    a on7o:Thought ;
+    on7o:text "Lembrar de marcar o dentista da Ana."@pt-BR ;
+    on7o:capturedAt "2026-08-12T09:42:17-03:00"^^xsd:dateTime ;
+    on7o:mentions ex:Ana ;
+    prov:wasAttributedTo ex:User .
+
+
+#################################################################
+# Event extracted from Thought #1
+#################################################################
+
+ex:AnaDentistAppointment
+    a on7o:Appointment ;
+    rdfs:label "Consulta de dentista da Ana"@pt-BR ;
+    on7o:concerns ex:Ana .
+
+
+#################################################################
+# Knowledge extracted from Thought #1
+#################################################################
+
+ex:Claim-001
+    a on7o:Claim ;
+    on7o:text "Existe uma intenção de marcar uma consulta odontológica para Ana."@pt-BR ;
+    on7o:derivedFrom ex:Thought-2026-08-12-001 ;
+    on7o:knowledgeStatus on7o:Asserted ;
+    on7o:confidence "1.0"^^xsd:decimal .
+
+
+#################################################################
+# Question generated because Ana was initially unknown
+#################################################################
+
+ex:Question-001
+    a on7o:Question ;
+    on7o:text "Quem é Ana para você?"@pt-BR ;
+    on7o:questionAbout ex:Ana ;
+    on7o:triggeredBy ex:Thought-2026-08-12-001 ;
+    on7o:answered true .
+
+
+#################################################################
+# Claim resulting from user's answer
+#
+# User answered:
+# "Ana é minha filha."
+#################################################################
+
+ex:Claim-002
+    a on7o:Claim ;
+    on7o:text "Ana é filha do usuário."@pt-BR ;
+    on7o:knowledgeStatus on7o:Asserted ;
+    on7o:confidence "1.0"^^xsd:decimal .
+
+ex:User
+    on7o:hasChild ex:Ana .
+
+
+#################################################################
+# Thought #2
+#
+# "Preciso fazer uma reunião de conselho da SciCrop
+#  para decidir o futuro e as opções de M&A."
+#################################################################
+
+ex:Thought-2026-08-12-002
+    a on7o:Thought ;
+    on7o:text """
+        Preciso fazer uma reunião de conselho da SciCrop
+        para decidir o futuro e as opções de M&A.
+    """@pt-BR ;
+    on7o:capturedAt "2026-08-12T10:15:31-03:00"^^xsd:dateTime ;
+    on7o:mentions ex:SciCrop ;
+    on7o:mentions ex:FutureOfSciCrop ;
+    on7o:mentions ex:MergersAndAcquisitions ;
+    prov:wasAttributedTo ex:User .
+
+
+#################################################################
+# Meeting inferred from Thought #2
+#################################################################
+
+ex:SciCropBoardMeeting
+    a on7o:Meeting ;
+    rdfs:label "Reunião de conselho da SciCrop"@pt-BR ;
+    on7o:concerns ex:SciCrop ;
+    on7o:hasTopic ex:FutureOfSciCrop ;
+    on7o:hasTopic ex:MergersAndAcquisitions ;
+    on7o:requiresDecisionAbout ex:FutureOfSciCrop ;
+    on7o:requiresDecisionAbout ex:MergersAndAcquisitions .
+
+
+#################################################################
+# Claims generated from Thought #2
+#################################################################
+
+ex:Claim-003
+    a on7o:Claim ;
+    on7o:text "Uma reunião de conselho da SciCrop precisa ocorrer."@pt-BR ;
+    on7o:derivedFrom ex:Thought-2026-08-12-002 ;
+    on7o:knowledgeStatus on7o:Asserted ;
+    on7o:confidence "0.98"^^xsd:decimal .
+
+ex:Claim-004
+    a on7o:Claim ;
+    on7o:text "M&A é uma das opções sendo consideradas para a SciCrop."@pt-BR ;
+    on7o:derivedFrom ex:Thought-2026-08-12-002 ;
+    on7o:knowledgeStatus on7o:Inferred ;
+    on7o:confidence "0.90"^^xsd:decimal .
+
+
+#################################################################
+# Questions generated by the ontology enrichment process
+#################################################################
+
+ex:Question-002
+    a on7o:Question ;
+    on7o:text "Qual é o seu papel atual na SciCrop?"@pt-BR ;
+    on7o:questionAbout ex:SciCrop ;
+    on7o:triggeredBy ex:Thought-2026-08-12-002 ;
+    on7o:answered false .
+
+ex:Question-003
+    a on7o:Question ;
+    on7o:text "Quem participa do conselho da SciCrop?"@pt-BR ;
+    on7o:questionAbout ex:SciCrop ;
+    on7o:triggeredBy ex:Thought-2026-08-12-002 ;
+    on7o:answered false .
+
+ex:Question-004
+    a on7o:Question ;
+    on7o:text """
+        Quando você fala em opções de M&A,
+        está considerando vender a SciCrop,
+        adquirir outra empresa, buscar uma fusão,
+        ou mais de uma dessas possibilidades?
+    """@pt-BR ;
+    on7o:questionAbout ex:MergersAndAcquisitions ;
+    on7o:triggeredBy ex:Thought-2026-08-12-002 ;
+    on7o:answered false .

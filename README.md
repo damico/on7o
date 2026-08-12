@@ -387,7 +387,7 @@ Keeping these layers separate makes it possible to improve models and reinterpre
 
 The ontology is intended to become the semantic backbone of on7o.
 
-The current direction is to integrate with the planned **Infinite Stack Ontology** layer.
+The current direction is to integrate with the **[Infinite Stack Ontology](https://github.com/scicrop/infinitestack-ontology)** layer.
 
 The exact formal representation is intentionally left open while the model evolves. Technologies such as **RDF**, **OWL**, graph databases, or other semantic representations may be evaluated as implementation progresses.
 
