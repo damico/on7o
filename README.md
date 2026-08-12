@@ -14,6 +14,23 @@ Over time, those answers allow on7o to build an increasingly rich semantic model
 
 ---
 
+## Why **on7o**?
+
+**on7o is pronounced _onTo_.**
+
+The name is a wordplay on **ontology**, a term derived from the Greek **_ón / óntos_** (ὄν / ὄντος), the present participle of **_einai_** — “to be” or “to exist” — and **_logia_** (λογία), “study” or “discourse.” In that sense, ontology is literally concerned with **that which is**, **being**, or **the study of what exists**.
+
+The project name compresses that idea into its core ambition. The **T** in **onto** becomes **7**, using seven as a symbol of perfection or completeness within the project's naming metaphor:
+
+> **onto** — that which is  
+> **on7o** — a *perfect description of that which is*
+
+This is intentionally aspirational. on7o does not assume that an LLM already knows the user's world, nor that its first interpretation is correct. Instead, it approaches that “perfect description” asymptotically: every captured thought, resolved ambiguity, relationship, correction, and clarification makes the model of the user's world a little more precise.
+
+The name therefore reflects both the **ontological foundation** of the project and its long-term goal: to construct an increasingly faithful, explicit, machine-readable description of the entities and relationships that constitute the user's knowledge and lived context.
+
+---
+
 ## Core idea
 
 Most personal knowledge systems require the user to organize information explicitly: create a note, choose a folder, add links, define tags, or maintain a graph.
