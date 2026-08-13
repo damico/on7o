@@ -1,1 +1,5 @@
-# Keep this directory in version control until the M5StickS3 firmware is implemented.
+# Wi-Fi credentials — copy secrets.h.example to secrets.h and fill it in.
+on7o-capture/secrets.h
+
+# PlatformIO
+.pio/

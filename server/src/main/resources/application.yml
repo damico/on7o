@@ -1,6 +1,24 @@
 spring:
   application:
     name: on7o-server
+  mvc:
+    async:
+      request-timeout: 0
 
 server:
+  # LAN-only during the capture milestone: no auth, no TLS.
+  address: 0.0.0.0
   port: 8080
+  tomcat:
+    connection-timeout: 60s
+    max-swallow-size: -1
+
+on7o:
+  storage:
+    root: data/thoughts
+    # 32 MiB is roughly 17 minutes of 16 kHz / 16-bit mono PCM.
+    max-bytes: 33554432
+
+logging:
+  level:
+    org.on7o: DEBUG
