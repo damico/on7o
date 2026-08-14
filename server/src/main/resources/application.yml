@@ -19,6 +19,15 @@ on7o:
     # 32 MiB is roughly 17 minutes of 16 kHz / 16-bit mono PCM.
     max-bytes: 33554432
 
+  stt:
+    enabled: true
+    url: http://127.0.0.1:8090
+    language: pt
+    model: ggml-large-v3-turbo-q5_0
+    temperature: 0.0
+    # Whisper on CPU runs several times slower than real time.
+    timeout: 10m
+
 logging:
   level:
     org.on7o: DEBUG

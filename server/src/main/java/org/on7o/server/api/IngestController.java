@@ -4,6 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.on7o.server.ingest.PcmFormat;
 import org.on7o.server.ingest.Thought;
 import org.on7o.server.ingest.ThoughtStore;
+import org.on7o.server.stt.Transcriber;
+import org.on7o.server.stt.Transcription;
+import org.on7o.server.stt.TranscriptionProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.Path;
 import java.time.Instant;
 
 /**
@@ -29,6 +33,10 @@ import java.time.Instant;
  *
  * Chunked bodies are accepted, so the device may start uploading before it knows
  * how long the user will keep the button pressed.
+ *
+ * <p><b>Transcription is synchronous for now</b>, which is fine for testing but
+ * holds the request open for as long as Whisper takes — several times the length
+ * of the audio on CPU. Moving it to a worker is the obvious next step.
  */
 @RestController
 public class IngestController {
@@ -36,13 +44,23 @@ public class IngestController {
     private static final Logger log = LoggerFactory.getLogger(IngestController.class);
 
     private final ThoughtStore store;
+    private final Transcriber transcriber;
+    private final TranscriptionProperties sttProperties;
 
-    public IngestController(ThoughtStore store) {
+    public IngestController(ThoughtStore store,
+                            Transcriber transcriber,
+                            TranscriptionProperties sttProperties) {
         this.store = store;
+        this.transcriber = transcriber;
+        this.sttProperties = sttProperties;
+    }
+
+    /** What the caller gets back: the capture, and what was understood from it. */
+    public record IngestResult(Thought thought, Transcription transcription) {
     }
 
     @PostMapping("/api/thoughts/audio")
-    public ResponseEntity<Thought> ingest(
+    public ResponseEntity<IngestResult> ingest(
             @RequestParam(defaultValue = "unknown") String device,
             @RequestParam(defaultValue = "16000") int sampleRate,
             @RequestParam(defaultValue = "1") int channels,
@@ -54,19 +72,41 @@ public class IngestController {
         PcmFormat pcmFormat = new PcmFormat(sampleRate, channels, bits);
         boolean bodyIsWav = isWav(format, request.getContentType());
 
+        Thought thought;
         try (InputStream body = request.getInputStream()) {
-            Thought thought = store.store(
+            thought = store.store(
                     body,
                     pcmFormat,
                     bodyIsWav,
                     device,
                     parseCapturedAt(capturedAt),
                     request.getRemoteAddr());
+        }
 
-            log.info("captured {} from {} ({} ms, {} bytes)",
-                    thought.id(), thought.deviceId(), thought.durationMs(), thought.audioBytes());
+        log.info("captured {} from {} ({} ms, {} bytes)",
+                thought.id(), thought.deviceId(), thought.durationMs(), thought.audioBytes());
 
-            return ResponseEntity.created(URI.create("/api/thoughts/" + thought.id())).body(thought);
+        return ResponseEntity.created(URI.create("/api/thoughts/" + thought.id()))
+                .body(new IngestResult(thought, transcribe(thought)));
+    }
+
+    /**
+     * The capture is the record; the transcription is derived from it. A failing
+     * speech-to-text engine must never cost the user a thought, so this returns
+     * null instead of propagating.
+     */
+    private Transcription transcribe(Thought thought) {
+        if (!sttProperties.isEnabled()) {
+            return null;
+        }
+        try {
+            Path audio = store.audioPath(thought);
+            Transcription transcription = transcriber.transcribe(audio, thought.id());
+            store.saveTranscription(transcription);
+            return transcription;
+        } catch (IOException | RuntimeException e) {
+            log.warn("could not transcribe {}: {}", thought.id(), e.getMessage());
+            return null;
         }
     }
 

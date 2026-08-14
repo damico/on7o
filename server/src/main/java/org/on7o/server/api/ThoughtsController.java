@@ -2,6 +2,7 @@ package org.on7o.server.api;
 
 import org.on7o.server.ingest.Thought;
 import org.on7o.server.ingest.ThoughtStore;
+import org.on7o.server.stt.Transcription;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -35,6 +36,11 @@ public class ThoughtsController {
     @GetMapping("/api/thoughts/{id}")
     public ResponseEntity<Thought> get(@PathVariable String id) {
         return ResponseEntity.of(store.find(id));
+    }
+
+    @GetMapping("/api/thoughts/{id}/transcription")
+    public ResponseEntity<Transcription> transcription(@PathVariable String id) {
+        return ResponseEntity.of(store.findTranscription(id));
     }
 
     @GetMapping("/api/thoughts/{id}/audio")

@@ -3,6 +3,7 @@ package org.on7o.server.ingest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.on7o.server.stt.Transcription;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -39,6 +40,7 @@ public class ThoughtStore {
             DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC);
     private static final String AUDIO_FILE = "audio.wav";
     private static final String META_FILE = "thought.json";
+    private static final String TRANSCRIPTION_FILE = "transcription.json";
     private static final int COPY_BUFFER = 8 * 1024;
 
     private final StorageProperties properties;
@@ -132,6 +134,29 @@ public class ThoughtStore {
             return Optional.of(objectMapper.readValue(meta.toFile(), Thought.class));
         } catch (IOException e) {
             log.warn("unreadable metadata for thought {}", id, e);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Stores what speech-to-text understood, alongside the capture it came from.
+     * Written as its own file so a new transcription never rewrites the thought.
+     */
+    public void saveTranscription(Transcription transcription) throws IOException {
+        Path dir = resolveSafely(transcription.thoughtId());
+        objectMapper.writerWithDefaultPrettyPrinter()
+                .writeValue(dir.resolve(TRANSCRIPTION_FILE).toFile(), transcription);
+    }
+
+    public Optional<Transcription> findTranscription(String id) {
+        Path file = resolveSafely(id).resolve(TRANSCRIPTION_FILE);
+        if (!Files.isRegularFile(file)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(objectMapper.readValue(file.toFile(), Transcription.class));
+        } catch (IOException e) {
+            log.warn("unreadable transcription for thought {}", id, e);
             return Optional.empty();
         }
     }
