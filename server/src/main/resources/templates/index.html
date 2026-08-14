@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>on7o</title>
+    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}"/>
+    <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+
+<header class="site-header">
+    <span class="site-logo">on7o <span>thoughts</span></span>
+    <span class="thought-time" th:text="${total} + ' captured'"></span>
+</header>
+
+<main class="main-content">
+
+    <h1 class="page-title">Thoughts</h1>
+    <p class="page-subtitle">Audio captures, most recent first.</p>
+
+    <div class="thought-list" th:if="${!thoughts.isEmpty()}">
+        <div class="thought-item" th:each="t : ${thoughts}" th:id="'thought-' + ${t.id}">
+            <div class="thought-meta">
+                <span class="thought-time" th:text="${t.capturedAt}"></span>
+                <span class="thought-duration" th:text="${t.duration}"></span>
+                <span class="thought-device" th:text="${t.deviceId}"></span>
+
+                <!-- STT button: show when pending -->
+                <th:block th:if="${t.pending}">
+                    <button class="btn-stt"
+                            th:attr="onclick='startStt(' + ${#strings.escapeJava(t.id)} + ')'"
+                            th:id="'btn-stt-' + ${t.id}">
+                        STT
+                    </button>
+                    <span class="stt-status" th:id="'stt-status-' + ${t.id}" style="display:none">transcribing...</span>
+                    <span class="stt-error"  th:id="'stt-error-'  + ${t.id}" style="display:none"></span>
+                </th:block>
+
+                <!-- Understand button: transcribed but not yet interpreted -->
+                <th:block th:if="${t.readyToUnderstand}">
+                    <button class="btn-understand"
+                            th:attr="onclick='startUnderstand(\'' + ${t.id} + '\')'">
+                        Understand
+                    </button>
+                    <span class="stt-status" th:id="'und-status-' + ${t.id}" style="display:none">analyzing...</span>
+                    <span class="stt-error"  th:id="'und-error-'  + ${t.id}" style="display:none"></span>
+                </th:block>
+
+                <!-- Questions ready: waiting for user answers -->
+                <th:block th:if="${t.hasQuestions and !t.hasCThought}">
+                    <a class="btn-questions"
+                       th:href="'/thoughts/' + ${t.id} + '/questions'">
+                        Answer questions
+                    </a>
+                </th:block>
+
+                <!-- Consolidated badge -->
+                <th:block th:if="${t.hasCThought}">
+                    <a class="btn-questions"
+                       th:href="'/thoughts/' + ${t.id} + '/questions'">
+                        Ontology ready
+                    </a>
+                </th:block>
+            </div>
+
+            <p class="thought-text"
+               th:id="'text-' + ${t.id}"
+               th:classappend="${t.pending} ? 'empty'"
+               th:text="${t.pending} ? 'No transcription.' : ${t.text}">
+            </p>
+        </div>
+    </div>
+
+    <div class="empty-state" th:if="${thoughts.isEmpty()}">
+        <p>No thoughts captured yet.</p>
+    </div>
+
+</main>
+
+<script>
+function startStt(id) {
+    var btn    = document.getElementById('btn-stt-'    + id);
+    var status = document.getElementById('stt-status-' + id);
+    var error  = document.getElementById('stt-error-'  + id);
+    var text   = document.getElementById('text-'       + id);
+
+    btn.disabled = true;
+    btn.style.display = 'none';
+    status.style.display = 'inline';
+    error.style.display  = 'none';
+
+    var source = new EventSource('/api/thoughts/' + encodeURIComponent(id) + '/transcribe/stream');
+
+    source.addEventListener('result', function(e) {
+        text.textContent = e.data;
+        text.classList.remove('empty');
+        status.style.display = 'none';
+        source.close();
+    });
+
+    source.addEventListener('error', function(e) {
+        status.style.display = 'none';
+        error.textContent    = e.data || 'transcription failed';
+        error.style.display  = 'inline';
+        btn.disabled = false;
+        btn.style.display = 'inline';
+        source.close();
+    });
+
+    source.onerror = function() {
+        status.style.display = 'none';
+        error.textContent    = 'connection lost';
+        error.style.display  = 'inline';
+        btn.disabled = false;
+        btn.style.display = 'inline';
+        source.close();
+    };
+}
+
+function startUnderstand(id) {
+    var meta   = document.querySelector('#thought-' + id + ' .thought-meta');
+    var status = document.getElementById('und-status-' + id);
+    var error  = document.getElementById('und-error-'  + id);
+    var undBtn = meta.querySelector('.btn-understand');
+
+    if (undBtn) {
+        undBtn.disabled = true;
+        undBtn.style.display = 'none';
+    }
+    status.style.display = 'inline';
+    error.style.display  = 'none';
+
+    var source = new EventSource('/api/thoughts/' + encodeURIComponent(id) + '/understand/stream');
+
+    source.addEventListener('status', function(e) {
+        status.textContent = e.data + '...';
+    });
+
+    source.addEventListener('questions_ready', function(e) {
+        source.close();
+        window.location.href = e.data;
+    });
+
+    source.addEventListener('error', function(e) {
+        status.style.display = 'none';
+        error.textContent    = e.data || 'understanding failed';
+        error.style.display  = 'inline';
+        if (undBtn) {
+            undBtn.disabled = false;
+            undBtn.style.display = 'inline';
+        }
+        source.close();
+    });
+
+    source.onerror = function() {
+        status.style.display = 'none';
+        error.textContent    = 'connection lost';
+        error.style.display  = 'inline';
+        if (undBtn) {
+            undBtn.disabled = false;
+            undBtn.style.display = 'inline';
+        }
+        source.close();
+    };
+}
+</script>
+
+<script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+</body>
+</html>

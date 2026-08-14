@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>on7o - questions</title>
+    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}"/>
+    <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+
+<header class="site-header">
+    <a href="/" class="site-logo">on7o <span>thoughts</span></a>
+    <span class="thought-time" th:text="${thoughtId}"></span>
+</header>
+
+<main class="main-content">
+
+    <h1 class="page-title">Clarification questions</h1>
+    <p class="page-subtitle">
+        Answer the questions below so the ontology can be consolidated.
+    </p>
+
+    <div class="transcription-quote" th:if="${!#strings.isEmpty(transcriptionText)}"
+         th:text="${transcriptionText}">
+    </div>
+
+    <!-- Already consolidated -->
+    <div th:if="${hasCThought}">
+        <p class="page-subtitle" style="color:#6a9a6a">Consolidated ontology (cThought)</p>
+        <pre class="cthought-output" id="cthought-output" th:text="${cThought}"></pre>
+    </div>
+
+    <!-- Form to answer questions -->
+    <div th:if="${!hasCThought}">
+        <p class="section-label">Questions</p>
+
+        <div th:each="q, i : ${questions}" class="question-block">
+            <div class="question-label"
+                 th:text="${i.index + 1} + '. ' + ${q}">
+            </div>
+            <textarea class="question-input"
+                      th:id="'answer-' + ${i.index}"
+                      th:name="'answer-' + ${i.index}"
+                      placeholder="Your answer..."></textarea>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:14px;margin-top:8px">
+            <button class="btn-submit" id="btn-submit" onclick="submitAnswers()">
+                Consolidate
+            </button>
+            <span class="stt-status" id="consolidate-status" style="display:none">consolidating...</span>
+            <span class="stt-error"  id="consolidate-error"  style="display:none"></span>
+        </div>
+
+        <pre class="cthought-output" id="cthought-output" style="display:none"></pre>
+    </div>
+
+</main>
+
+<script th:inline="javascript">
+    var THOUGHT_ID = /*[[${thoughtId}]]*/ '';
+    var QUESTION_COUNT = /*[[${#lists.size(questions)}]]*/ 0;
+
+    function submitAnswers() {
+        var btn    = document.getElementById('btn-submit');
+        var status = document.getElementById('consolidate-status');
+        var error  = document.getElementById('consolidate-error');
+        var output = document.getElementById('cthought-output');
+
+        var answers = [];
+        for (var i = 0; i < QUESTION_COUNT; i++) {
+            var el = document.getElementById('answer-' + i);
+            answers.push(el ? el.value.trim() : '');
+        }
+
+        btn.disabled = true;
+        status.style.display = 'inline';
+        error.style.display  = 'none';
+        output.style.display = 'none';
+
+        fetch('/api/thoughts/' + encodeURIComponent(THOUGHT_ID) + '/answers', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(answers)
+        })
+        .then(function(res) {
+            if (!res.ok) {
+                throw new Error('server returned ' + res.status);
+            }
+            openConsolidateStream();
+        })
+        .catch(function(err) {
+            status.style.display = 'none';
+            error.textContent    = err.message;
+            error.style.display  = 'inline';
+            btn.disabled = false;
+        });
+    }
+
+    function openConsolidateStream() {
+        var status = document.getElementById('consolidate-status');
+        var error  = document.getElementById('consolidate-error');
+        var output = document.getElementById('cthought-output');
+
+        var source = new EventSource(
+            '/api/thoughts/' + encodeURIComponent(THOUGHT_ID) + '/consolidate/stream'
+        );
+
+        source.addEventListener('result', function(e) {
+            status.style.display  = 'none';
+            output.textContent    = e.data;
+            output.style.display  = 'block';
+            source.close();
+        });
+
+        source.addEventListener('error', function(e) {
+            status.style.display  = 'none';
+            error.textContent     = e.data || 'consolidation failed';
+            error.style.display   = 'inline';
+            document.getElementById('btn-submit').disabled = false;
+            source.close();
+        });
+
+        source.onerror = function() {
+            status.style.display  = 'none';
+            error.textContent     = 'connection lost';
+            error.style.display   = 'inline';
+            document.getElementById('btn-submit').disabled = false;
+            source.close();
+        };
+    }
+</script>
+
+<script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+</body>
+</html>

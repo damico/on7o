@@ -1,6 +1,8 @@
 spring:
   application:
     name: on7o-server
+  config:
+    import: optional:file:.env[.properties]
   mvc:
     async:
       request-timeout: 0
@@ -27,6 +29,10 @@ on7o:
     temperature: 0.0
     # Whisper on CPU runs several times slower than real time.
     timeout: 10m
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+  model: ${OPENAI_MODEL:o3}
 
 logging:
   level:

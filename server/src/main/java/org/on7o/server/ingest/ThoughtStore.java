@@ -41,6 +41,11 @@ public class ThoughtStore {
     private static final String AUDIO_FILE = "audio.wav";
     private static final String META_FILE = "thought.json";
     private static final String TRANSCRIPTION_FILE = "transcription.json";
+    public static final String RTHOUGHT_FILE = "rthought.ttl";
+    public static final String QTHOUGHT_FILE = "qthought.ttl";
+    public static final String CTHOUGHT_FILE = "cthought.ttl";
+    public static final String QUESTIONS_FILE = "questions.json";
+    public static final String ANSWERS_FILE = "answers.json";
     private static final int COPY_BUFFER = 8 * 1024;
 
     private final StorageProperties properties;
@@ -165,6 +170,80 @@ public class ThoughtStore {
         return resolveSafely(thought.id()).resolve(thought.audioFile());
     }
 
+    /** Saves the raw ontology (stage 1 output) for a thought. */
+    public void saveRawThought(String id, String turtle) throws IOException {
+        Files.writeString(resolveSafely(id).resolve(RTHOUGHT_FILE), turtle);
+    }
+
+    /** Loads the raw ontology, if it exists. */
+    public Optional<String> findRawThought(String id) {
+        return readText(resolveSafely(id).resolve(RTHOUGHT_FILE));
+    }
+
+    /** Saves the questioned ontology and the plain-language questions list (stage 2). */
+    public void saveQuestionsThought(String id, String turtle, List<String> questions) throws IOException {
+        Path dir = resolveSafely(id);
+        Files.writeString(dir.resolve(QTHOUGHT_FILE), turtle);
+        objectMapper.writerWithDefaultPrettyPrinter()
+                .writeValue(dir.resolve(QUESTIONS_FILE).toFile(), questions);
+    }
+
+    /** Loads the questioned ontology Turtle, if it exists. */
+    public Optional<String> findQuestionsThought(String id) {
+        return readText(resolveSafely(id).resolve(QTHOUGHT_FILE));
+    }
+
+    /** Loads the plain-language questions, if they exist. */
+    @SuppressWarnings("unchecked")
+    public Optional<List<String>> findQuestions(String id) {
+        Path f = resolveSafely(id).resolve(QUESTIONS_FILE);
+        if (!Files.isRegularFile(f)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(objectMapper.readValue(f.toFile(), List.class));
+        } catch (IOException e) {
+            log.warn("unreadable questions for thought {}", id, e);
+            return Optional.empty();
+        }
+    }
+
+    /** Saves the user's answers to the clarification questions (stage 3 input). */
+    public void saveAnswers(String id, List<String> answers) throws IOException {
+        objectMapper.writerWithDefaultPrettyPrinter()
+                .writeValue(resolveSafely(id).resolve(ANSWERS_FILE).toFile(), answers);
+    }
+
+    /** Loads the user's answers, if they have been submitted. */
+    @SuppressWarnings("unchecked")
+    public Optional<List<String>> findAnswers(String id) {
+        Path f = resolveSafely(id).resolve(ANSWERS_FILE);
+        if (!Files.isRegularFile(f)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(objectMapper.readValue(f.toFile(), List.class));
+        } catch (IOException e) {
+            log.warn("unreadable answers for thought {}", id, e);
+            return Optional.empty();
+        }
+    }
+
+    /** Saves the consolidated ontology (stage 3 output). */
+    public void saveConsolidatedThought(String id, String turtle) throws IOException {
+        Files.writeString(resolveSafely(id).resolve(CTHOUGHT_FILE), turtle);
+    }
+
+    /** Loads the consolidated ontology, if it exists. */
+    public Optional<String> findConsolidatedThought(String id) {
+        return readText(resolveSafely(id).resolve(CTHOUGHT_FILE));
+    }
+
+    /** Returns true when the given filename exists inside the thought directory. */
+    public boolean hasFile(String id, String filename) {
+        return Files.isRegularFile(resolveSafely(id).resolve(filename));
+    }
+
     /** Most recent captures first. */
     public List<Thought> list(int limit) throws IOException {
         try (Stream<Path> dirs = Files.list(root)) {
@@ -175,6 +254,18 @@ public class ThoughtStore {
                     .flatMap(Optional::stream)
                     .limit(limit)
                     .toList();
+        }
+    }
+
+    private Optional<String> readText(Path path) {
+        if (!Files.isRegularFile(path)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Files.readString(path));
+        } catch (IOException e) {
+            log.warn("unreadable file {}", path, e);
+            return Optional.empty();
         }
     }
 
