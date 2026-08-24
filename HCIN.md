@@ -105,6 +105,109 @@ Person A ────────┼── Professional
 ```         
 Interesses, os quais podem funcionar como nova classe de ligação: Pessoas podem ter relacionamentos temporários apenas por interesses comuns, que forçam a existência de tal relacionamento.
 
+### Temporalidade das relações e do conhecimento:
+
+A característica temporal do HCIN não se limita a registrar quando uma relação começou ou terminou. É necessário distinguir pelo menos dois eixos temporais: **o tempo em que uma relação ou afirmação é válida no mundo** e **o tempo em que o HCIN tomou conhecimento dela**.
+
+Por exemplo, uma relação profissional pode ter existido entre 2022 e 2024, embora o on7o só venha a aprender sobre ela em 2026. Assim, o HCIN deve ser capaz de representar separadamente:
+
+- `validFrom` / `validTo`: período em que a relação, papel, interesse ou afirmação é considerada válida;
+- `observedAt`: instante em que a evidência foi observada pelo sistema;
+- `recordedAt`: instante em que a informação foi incorporada ao HCIN;
+- `lastConfirmedAt`: última ocasião em que a informação foi explicitamente confirmada ou corroborada;
+- mudanças de estado e intensidade ao longo do tempo.
+
+Uma representação possível seria:
+
+```turtle
+:relationship_981
+    a hcin:Relationship ;
+    hcin:source :Me ;
+    hcin:target :Joao ;
+    hcin:type hcin:ProfessionalTrust ;
+    hcin:context :SciCrop ;
+    hcin:validFrom "2022-01-01"^^xsd:date ;
+    hcin:validTo "2024-12-31"^^xsd:date ;
+    hcin:observedAt "2026-08-24T12:30:00-03:00"^^xsd:dateTime ;
+    hcin:recordedAt "2026-08-24T12:31:10-03:00"^^xsd:dateTime ;
+    hcin:confidence 0.92 ;
+    hcin:perspective :Me ;
+    hcin:epistemicStatus hcin:Asserted ;
+    prov:wasDerivedFrom :thought_1234 .
+```
+
+Essa distinção permite que o HCIN represente não apenas um grafo, mas uma **evolução temporal do grafo**. Em vez de existir apenas `HCIN`, passam a existir estados `HCIN(t)`, nos quais nós, relações, interesses, contextos e pesos podem surgir, desaparecer ou se modificar.
+
+Uma relação pode, por exemplo, evoluir de:
+
+```text
+unknown → acquaintance → colleague → partner → former partner
+```
+
+sem que os estados anteriores sejam apagados. A história da relação torna-se parte do próprio conhecimento.
+
+### Formalização inicial do HCIN Core Model:
+
+Como formalização inicial, e ainda sujeita a refinamentos, o núcleo do HCIN pode ser descrito por:
+
+$$
+HCIN = (V, E, L, T, C, P, G)
+$$
+
+onde:
+
+- $V$ representa os vértices ou entidades, como pessoas, organizações, interesses, eventos, objetivos e conceitos;
+- $E$ representa relações qualificadas entre entidades;
+- $L$ representa as diferentes camadas ou tipos de relação, como familiar, profissional, financeira, intelectual, emocional ou de governança;
+- $T$ representa a dimensão temporal e a evolução dos estados da rede;
+- $C$ representa os contextos nos quais uma relação ou afirmação é válida ou relevante;
+- $P$ representa perspectiva, provenance, evidência, confiança e estado epistêmico associados ao conhecimento;
+- $G$ representa interesses e objetivos em relação aos quais a relevância de pessoas e relações pode ser analisada.
+
+A aresta mais simples de um social graph tradicional pode ser descrita como:
+
+$$
+e = (A,B)
+$$
+
+Uma primeira evolução semântica explicita o tipo da relação:
+
+$$
+e = (A,r,B)
+$$
+
+No HCIN, entretanto, uma relação precisa ser qualificada por camada, tempo, contexto, perspectiva, objetivo e por um conjunto multidimensional de características:
+
+$$
+e = (A,B,l,t,c,p,g,\mathbf{w})
+$$
+
+onde $\mathbf{w}$ deixa de representar uma única força escalar e passa a ser um **vetor de características da relação**. Por exemplo:
+
+$$
+\mathbf{w} = [emotionalCloseness, professionalTrust, interactionFrequency, economicDependency, intellectualAlignment, personalTrust]
+$$
+
+Para uma relação concreta, o vetor poderia assumir um estado como:
+
+$$
+\mathbf{w} = [0.10, 0.95, 0.80, 0.70, 0.92, 0.35]
+$$
+
+Entretanto, como relações humanas não são estáticas, o vetor deve ser entendido como função do tempo:
+
+$$
+\mathbf{w}_e(t)
+$$
+
+Assim, a evolução de uma relação pode ser analisada por mudanças no vetor entre dois instantes:
+
+$$
+\Delta \mathbf{w}_e = \mathbf{w}_e(t_2) - \mathbf{w}_e(t_1)
+$$
+
+O HCIN passa, portanto, a representar não apenas a existência de uma aresta, mas a **trajetória dessa aresta**. A pergunta “a relação está aumentando ou diminuindo?” deixa de exigir um único número e pode ser respondida por dimensão, contexto e intervalo temporal. Por exemplo, a confiança profissional pode crescer enquanto a proximidade emocional diminui, sem que uma mudança anule a outra.
+
 ### Suporte a SKOS, FOAF, SIOC, PROV-O e vocab W3C:
 
 FOAF é fornece parte da base de Person, identidade e relações sociais; e inclusive possui foaf:knows e foaf:interest, embora a representação de interesse do FOAF não seja plenamente suficiente para a proposta HCIN. Já o vocab W3C é especialmente útil nos relacionamentos profissionais previsto no HCIN, pois já modela Organization, Membership, Role, memberOf, headOf, estruturas organizacionais e duração de memberships. A própria recomendação sugere a relação n-ária Membership justamente quando é necessário representar uma pessoa que desempenha determinado papel dentro de determinada organização.
@@ -140,6 +243,51 @@ Em uma abordagem bottom-up o on7o serve de base e início como pode ser entendid
                         │
                        on7o
 ```                      
+
+### As três camadas fundamentais do HCIN:
+
+A arquitetura conceitual do HCIN pode ser entendida como a integração de três camadas complementares: **semântica**, **relacional** e **epistêmica**. Elas não representam bancos ou subsistemas necessariamente separados, mas diferentes dimensões de interpretação sobre o mesmo conhecimento.
+
+```text
+                         HCIN
+                          │
+       ┌──────────────────┼──────────────────┐
+       │                  │                  │
+ Semantic Layer      Relational Layer   Epistemic Layer
+       │                  │                  │
+ RDF / OWL / SKOS       Topology          Perspective
+       │               Multiplexity        Provenance
+       │               Temporality         Evidence
+       │               Centrality          Confidence
+       │               Communities         Epistemic status
+       │               w_e(t)              Observation time
+       │                  │                  │
+       └──────────────────┼──────────────────┘
+                          │
+                       Context
+                          │
+                    Human meaning
+```
+
+#### Semantic Layer
+
+A camada semântica responde principalmente **o que as coisas são e o que as relações significam**. É nela que RDF, OWL, SKOS e vocabulários reutilizados fornecem identidade, classes, propriedades, restrições e relações conceituais. Ela permite distinguir, por exemplo, uma `Person` de uma `Organization`, um interesse de um papel profissional e confiança profissional de uma relação familiar.
+
+#### Relational Layer
+
+A camada relacional responde **como essas entidades se organizam e evoluem na rede**. Nela aparecem topologia, multiplexidade, assimetria, centralidade, comunidades, structural holes, reciprocidade, intensidade multidimensional e evolução temporal. É também nessa camada que a relação qualificada $e$ e seu vetor $\mathbf{w}_e(t)$ permitem observar trajetórias, mudanças e diferenças entre os diversos aspectos de um vínculo humano.
+
+#### Epistemic Layer
+
+A camada epistêmica responde **como o HCIN sabe aquilo que afirma saber**. Ela qualifica o conhecimento por perspectiva, provenance, evidência, confiança, contexto, instante de observação e estado epistêmico. Assim, uma relação pode ser explicitamente declarada pelo usuário, relatada por uma terceira pessoa, extraída de um documento ou inferida pelo sistema, sem que essas origens recebam automaticamente o mesmo estatuto de verdade.
+
+As três camadas atuam conjuntamente. Uma afirmação como “João é uma pessoa importante para a estratégia de M&A da SciCrop” exige, ao mesmo tempo:
+
+- **semântica**, para compreender `João`, `SciCrop`, `M&A`, `Person`, `Organization`, `Strategy` e os tipos das relações envolvidas;
+- **relacional**, para determinar posição, contexto, conectividade, dependência, camadas relevantes e evolução dessa importância;
+- **epistêmica**, para determinar de qual perspectiva a afirmação foi feita, quais evidências a sustentam, quando foi observada e qual seu nível de confiança.
+
+Dessa maneira, o HCIN não deve ser compreendido apenas como uma ontologia seguida de uma etapa de análise de grafos. A ontologia constitui sua camada semântica, enquanto a topologia e a análise de redes constituem sua camada relacional, e a rastreabilidade do conhecimento constitui sua camada epistêmica.
 
 ## A importância de cada papel:
 
@@ -278,4 +426,3 @@ E dado que este grafo se fundamenta na captura de pensamento de um indivíduo es
 
 No que é apresentado aqui, o on7o passa a ser o sensor epistemológico, e o HCIN, o modelo de inteligência relacional construído a partir dele.
             
-
