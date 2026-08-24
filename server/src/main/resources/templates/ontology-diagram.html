@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title th:text="${stageTitle} + ' - on7o'">on7o</title>
+    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}"/>
+    <link rel="stylesheet" th:href="@{/css/app.css}"/>
+    <style>
+        html, body { height: 100%; overflow: hidden; }
+
+        .diagram-topbar {
+            display: flex; align-items: center; gap: 16px;
+            height: 46px; padding: 0 20px; flex-shrink: 0;
+            border-bottom: 1px solid var(--border, #1c1c1c);
+        }
+        .diagram-back { color: var(--text-muted); text-decoration: none; font-size: 13px; }
+        .diagram-back:hover { color: var(--text); }
+        .diagram-title { font-size: 13px; color: var(--text); font-weight: 500; }
+        .diagram-empty { color: var(--text-muted); font-size: 13px; margin-left: auto; }
+
+        .btn-connect {
+            font-family: var(--mono); font-size: 12px; color: var(--text-muted, #888);
+            background: transparent; border: 1px solid var(--border, #1c1c1c);
+            border-radius: 5px; padding: 4px 10px; cursor: pointer;
+        }
+        .btn-connect:hover { color: var(--text); border-color: #555; }
+        .btn-connect.active { color: #0a0a0a; background: #fff; border-color: #fff; }
+        .diagram-connect-hint { font-size: 12px; color: var(--text-muted, #888); }
+
+        .diagram-body { display: flex; height: calc(100% - 46px); }
+
+        .side-panel {
+            width: 0; flex-shrink: 0; overflow: hidden;
+            border-right: 1px solid var(--border, #1c1c1c);
+            background: #0a0a0a; transition: width 0.15s ease;
+        }
+        .side-panel.open { width: 14%; min-width: 190px; }
+        .side-panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            height: 40px; padding: 0 12px; flex-shrink: 0;
+            border-bottom: 1px solid var(--border, #1c1c1c); white-space: nowrap;
+        }
+        .side-panel-title { font-family: var(--mono); font-size: 12px; color: var(--text); }
+        .side-panel-close {
+            background: none; border: none; color: var(--text-muted, #888);
+            font-size: 16px; line-height: 1; cursor: pointer; padding: 2px 4px;
+        }
+        .side-panel-close:hover { color: var(--text); }
+        .side-panel-content { padding: 12px; overflow-y: auto; }
+        .panel-row { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .panel-row .panel-label {
+            display: block; font-family: var(--mono); font-size: 10px;
+            color: var(--text-muted, #888); text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .panel-row .panel-value {
+            display: block; font-family: var(--mono); font-size: 12px;
+            color: var(--text); margin-top: 2px; word-break: break-word;
+        }
+
+        .diagram-outer {
+            position: relative; flex: 1; min-width: 0; height: 100%;
+            overflow: hidden; cursor: grab; background: #0a0a0a;
+        }
+        .diagram-outer.panning { cursor: grabbing; }
+
+        .dnode rect { stroke-width: 1.5px; }
+        .dnode text { font-family: var(--mono); font-size: 11px; fill: #0a0a0a; }
+
+        .dnode.class rect      { fill: #3b82f6; stroke: #6ea3f8; }
+        .dnode.property rect   { fill: #a855f7; stroke: #c084fc; }
+        .dnode.individual rect { fill: #10b981; stroke: #34d399; }
+        .dnode.datatype rect   { fill: #f59e0b; stroke: #fbbf24; }
+        .dnode.vocabulary rect { fill: #64748b; stroke: #94a3b8; }
+        .dnode.selected rect { stroke: #fff; stroke-width: 2.5px; }
+
+        .diagram-outer.connecting .dnode text {
+            cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px;
+        }
+        .diagram-outer.connecting .dnode text:hover { fill: #fff; text-decoration-color: #fff; }
+
+        .dedge line { stroke: #333; stroke-width: 1.2px; }
+        .dedge.type line { stroke-dasharray: 3 3; stroke: #555; }
+        .dedge text {
+            font-family: var(--mono); font-size: 10px; fill: #888;
+            paint-order: stroke; stroke: #0a0a0a; stroke-width: 3px;
+        }
+
+        .diagram-legend {
+            position: absolute; left: 16px; bottom: 16px;
+            display: flex; flex-direction: column; gap: 4px;
+            font-family: var(--mono); font-size: 11px; color: var(--text-muted, #888);
+            background: rgba(10,10,10,0.7); border: 1px solid var(--border, #1c1c1c);
+            border-radius: 6px; padding: 10px 12px; pointer-events: none;
+        }
+        .diagram-legend span { display: flex; align-items: center; gap: 6px; }
+        .diagram-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+        .diagram-zoom {
+            position: absolute; right: 16px; bottom: 16px;
+            font-family: var(--mono); font-size: 11px; color: var(--text-muted, #888);
+            background: rgba(10,10,10,0.7); border: 1px solid var(--border, #1c1c1c);
+            border-radius: 6px; padding: 6px 10px;
+        }
+    </style>
+</head>
+<body>
+
+<header class="diagram-topbar">
+    <a class="diagram-back" th:href="@{/}">&larr; thoughts</a>
+    <span class="diagram-title" th:text="${stageTitle} + ' &mdash; ' + ${id}"></span>
+    <button id="connect-btn" class="btn-connect" th:if="${stage == 'cthought'}">+ type</button>
+    <span class="diagram-connect-hint" id="connect-hint"></span>
+    <span class="diagram-empty" id="empty-label" style="display:none">nothing to draw yet</span>
+</header>
+
+<div class="diagram-body">
+    <aside class="side-panel" id="side-panel">
+        <div class="side-panel-header">
+            <span class="side-panel-title" id="panel-title"></span>
+            <button class="side-panel-close" id="panel-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="side-panel-content" id="panel-content"></div>
+    </aside>
+
+    <div class="diagram-outer" id="diagram-outer">
+        <svg id="diagram-svg" width="100%" height="100%">
+            <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                        markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M0,0 L10,5 L0,10 z" fill="#444"></path>
+                </marker>
+            </defs>
+            <g id="diagram-transform">
+                <g id="edges-layer"></g>
+                <g id="nodes-layer"></g>
+            </g>
+        </svg>
+
+        <div class="diagram-legend">
+            <span><i style="background:#3b82f6"></i>class</span>
+            <span><i style="background:#a855f7"></i>property</span>
+            <span><i style="background:#10b981"></i>individual</span>
+            <span><i style="background:#64748b"></i>vocabulary</span>
+        </div>
+        <div class="diagram-zoom" id="zoom-indicator">100%</div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+'use strict';
+
+const thoughtId = /*[[${id}]]*/ '';
+const stage     = /*[[${stage}]]*/ '';
+
+const outer = document.getElementById('diagram-outer');
+const xform = document.getElementById('diagram-transform');
+const edgesLayer = document.getElementById('edges-layer');
+const nodesLayer = document.getElementById('nodes-layer');
+const zoomLabel = document.getElementById('zoom-indicator');
+const connectBtn = document.getElementById('connect-btn');
+const connectHint = document.getElementById('connect-hint');
+const sidePanel = document.getElementById('side-panel');
+const panelTitle = document.getElementById('panel-title');
+const panelContent = document.getElementById('panel-content');
+const panelClose = document.getElementById('panel-close');
+
+function svgEl(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+
+/* ── Element panel: placeholder for the future property editor ───── */
+function escapeHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+}
+
+function panelRow(label, value) {
+    return '<div class="panel-row"><span class="panel-label">' + escapeHtml(label)
+        + '</span><span class="panel-value">' + escapeHtml(value) + '</span></div>';
+}
+
+function showPanel(n) {
+    panelTitle.textContent = n.label;
+    let html = panelRow('Type', n.type);
+    if (n.tooltip) {
+        n.tooltip.split('\n').forEach(function(line) {
+            const sep = line.search(/[:=]/);
+            if (sep < 0) { html += panelRow('', line); return; }
+            html += panelRow(line.slice(0, sep), line.slice(sep + 1).trim());
+        });
+    }
+    panelContent.innerHTML = html;
+    sidePanel.classList.add('open');
+}
+
+panelClose.addEventListener('click', function() {
+    sidePanel.classList.remove('open');
+});
+
+/* ── Manual "individual is also a Type" relation ────────────────── */
+let connectMode = false;
+let connectSource = null; /* { label, g } */
+
+if (connectBtn) {
+    connectBtn.addEventListener('click', function() {
+        connectMode = !connectMode;
+        connectBtn.classList.toggle('active', connectMode);
+        outer.classList.toggle('connecting', connectMode);
+        connectHint.textContent = connectMode ? 'Click the individual, then its type...' : '';
+        clearSelection();
+    });
+}
+
+function clearSelection() {
+    if (connectSource) { connectSource.g.classList.remove('selected'); }
+    connectSource = null;
+}
+
+function handleConnectClick(n, g) {
+    if (!connectSource) {
+        connectSource = { label: n.label, g: g };
+        g.classList.add('selected');
+        connectHint.textContent = 'Now click the type for "' + n.label + '"...';
+        return;
+    }
+    if (n.label === connectSource.label) {
+        return;
+    }
+
+    const individual = connectSource.label;
+    const type = n.label;
+    connectHint.textContent = 'saving...';
+
+    fetch('/api/thoughts/' + encodeURIComponent(thoughtId) + '/diagram/cthought/relations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ individual: individual, type: type })
+    })
+    .then(function(r) {
+        if (!r.ok) { throw new Error('request failed: ' + r.status); }
+        return r.json();
+    })
+    .then(function(diagram) {
+        clearSelection();
+        connectMode = false;
+        connectBtn.classList.remove('active');
+        outer.classList.remove('connecting');
+        connectHint.textContent = '';
+        redraw(diagram);
+    })
+    .catch(function(err) {
+        console.error('could not add relation:', err);
+        connectHint.textContent = 'failed - click "' + individual + '" again to retry';
+        clearSelection();
+    });
+}
+
+let pan = { x: 0, y: 0 };
+let zoom = 1;
+
+function applyXform() {
+    xform.setAttribute('transform', 'translate(' + pan.x + ',' + pan.y + ') scale(' + zoom + ')');
+    zoomLabel.textContent = Math.round(zoom * 100) + '%';
+}
+
+function zoomAt(sx, sy, nz) {
+    const r = outer.getBoundingClientRect();
+    const mx = sx - r.left, my = sy - r.top;
+    nz = Math.max(0.1, Math.min(3, nz));
+    pan.x = mx - (mx - pan.x) * (nz / zoom);
+    pan.y = my - (my - pan.y) * (nz / zoom);
+    zoom = nz;
+    applyXform();
+}
+
+outer.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    zoomAt(e.clientX, e.clientY, zoom - e.deltaY * 0.001);
+}, { passive: false });
+
+let panning = null;
+outer.addEventListener('mousedown', function(e) {
+    panning = { sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y };
+    outer.classList.add('panning');
+});
+window.addEventListener('mousemove', function(e) {
+    if (!panning) return;
+    pan.x = panning.ox + (e.clientX - panning.sx);
+    pan.y = panning.oy + (e.clientY - panning.sy);
+    applyXform();
+});
+window.addEventListener('mouseup', function() {
+    panning = null;
+    outer.classList.remove('panning');
+});
+
+/* ── Force-directed layout (no external library) ───────────────── */
+function layout(nodes, edges) {
+    const idx = new Map(nodes.map(function(n) { return [n.id, n]; }));
+    nodes.forEach(function(n) {
+        n.x = 400 + (Math.random() - 0.5) * 300;
+        n.y = 300 + (Math.random() - 0.5) * 300;
+        n.vx = 0; n.vy = 0;
+    });
+
+    const REPEL = 14000, SPRING = 0.02, REST = 170, DAMP = 0.85, GRAV = 0.0015;
+    for (let iter = 0; iter < 400; iter++) {
+        for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+                const a = nodes[i], b = nodes[j];
+                const dx = a.x - b.x, dy = a.y - b.y;
+                const d2 = Math.max(dx * dx + dy * dy, 25);
+                const d = Math.sqrt(d2);
+                const f = REPEL / d2;
+                const fx = f * dx / d, fy = f * dy / d;
+                a.vx += fx; a.vy += fy;
+                b.vx -= fx; b.vy -= fy;
+            }
+        }
+        edges.forEach(function(e) {
+            const a = idx.get(e.sourceId), b = idx.get(e.targetId);
+            if (!a || !b) return;
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const d = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+            const f = SPRING * (d - REST);
+            const fx = f * dx / d, fy = f * dy / d;
+            a.vx += fx; a.vy += fy;
+            b.vx -= fx; b.vy -= fy;
+        });
+        nodes.forEach(function(n) {
+            n.vx += (400 - n.x) * GRAV;
+            n.vy += (300 - n.y) * GRAV;
+            n.vx *= DAMP; n.vy *= DAMP;
+            n.x += n.vx; n.y += n.vy;
+        });
+    }
+}
+
+function fitView(nodes) {
+    if (!nodes.length) { pan = { x: 0, y: 0 }; zoom = 1; applyXform(); return; }
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    nodes.forEach(function(n) {
+        x0 = Math.min(x0, n.x - n.w / 2); y0 = Math.min(y0, n.y - n.h / 2);
+        x1 = Math.max(x1, n.x + n.w / 2); y1 = Math.max(y1, n.y + n.h / 2);
+    });
+    const pad = 60, vw = outer.clientWidth, vh = outer.clientHeight;
+    zoom = Math.max(0.1, Math.min(1.5, Math.min(vw / (x1 - x0 + pad * 2), vh / (y1 - y0 + pad * 2))));
+    pan.x = (vw - (x1 - x0) * zoom) / 2 - x0 * zoom;
+    pan.y = (vh - (y1 - y0) * zoom) / 2 - y0 * zoom;
+    applyXform();
+}
+
+/* ── Rendering ───────────────────────────────────────────────────── */
+function renderNode(n) {
+    n.w = Math.max(60, n.label.length * 7 + 24);
+    n.h = 30;
+
+    const g = svgEl('g');
+    g.setAttribute('class', 'dnode ' + n.type);
+    g.setAttribute('transform', 'translate(' + (n.x - n.w / 2) + ',' + (n.y - n.h / 2) + ')');
+
+    const rect = svgEl('rect');
+    rect.setAttribute('width', n.w);
+    rect.setAttribute('height', n.h);
+    rect.setAttribute('rx', 6);
+    g.appendChild(rect);
+
+    const text = svgEl('text');
+    text.setAttribute('x', n.w / 2);
+    text.setAttribute('y', n.h / 2 + 4);
+    text.setAttribute('text-anchor', 'middle');
+    text.textContent = n.label;
+    text.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+    text.addEventListener('click', function(e) {
+        if (connectMode) {
+            e.stopPropagation();
+            handleConnectClick(n, g);
+            return;
+        }
+        if (stage === 'cthought') {
+            e.stopPropagation();
+            showPanel(n);
+        }
+    });
+    g.appendChild(text);
+
+    if (n.tooltip) {
+        const title = svgEl('title');
+        title.textContent = n.tooltip;
+        g.appendChild(title);
+    }
+
+    nodesLayer.appendChild(g);
+}
+
+/* ── Turn one clicked concept into its own derived qThought ────────── */
+function deriveEntity(label, el) {
+    el.style.opacity = '0.4';
+    fetch('/api/thoughts/' + encodeURIComponent(thoughtId) + '/entities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: stage, label: label })
+    })
+    .then(function(r) {
+        if (!r.ok) { throw new Error('request failed: ' + r.status); }
+        return r.json();
+    })
+    .then(function(data) {
+        window.location.href = data.redirect;
+    })
+    .catch(function(err) {
+        console.error('could not derive entity "' + label + '":', err);
+        el.style.opacity = '1';
+    });
+}
+
+function renderEdge(e, idx) {
+    const a = idx.get(e.sourceId), b = idx.get(e.targetId);
+    if (!a || !b) return;
+
+    const g = svgEl('g');
+    g.setAttribute('class', 'dedge' + (e.label === 'type' ? ' type' : ''));
+
+    const line = svgEl('line');
+    line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
+    line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
+    line.setAttribute('marker-end', 'url(#arrow)');
+    g.appendChild(line);
+
+    const text = svgEl('text');
+    text.setAttribute('x', (a.x + b.x) / 2);
+    text.setAttribute('y', (a.y + b.y) / 2 - 4);
+    text.setAttribute('text-anchor', 'middle');
+    text.textContent = e.label;
+    g.appendChild(text);
+
+    if (e.tooltip) {
+        const title = svgEl('title');
+        title.textContent = e.tooltip;
+        g.appendChild(title);
+    }
+
+    edgesLayer.appendChild(g);
+}
+
+function redraw(diagram) {
+    edgesLayer.replaceChildren();
+    nodesLayer.replaceChildren();
+
+    const emptyLabel = document.getElementById('empty-label');
+    if (!diagram.nodes.length) {
+        emptyLabel.style.display = 'inline';
+        return;
+    }
+    emptyLabel.style.display = 'none';
+
+    layout(diagram.nodes, diagram.edges);
+    const idx = new Map(diagram.nodes.map(function(n) { return [n.id, n]; }));
+    diagram.edges.forEach(function(e) { renderEdge(e, idx); });
+    diagram.nodes.forEach(renderNode);
+    fitView(diagram.nodes);
+}
+
+fetch('/api/thoughts/' + encodeURIComponent(thoughtId) + '/diagram/' + encodeURIComponent(stage))
+    .then(function(r) { return r.json(); })
+    .then(redraw);
+</script>
+
+<script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+</body>
+</html>
