@@ -402,6 +402,16 @@ default `java` on this machine is 17; 21 must be explicit).
 
 ---
 
+## Notes
+
+`HCIN-fin-proj.md` writes its formulas as ` ```math ` fences for display and
+`$...$` for inline. It used to use the LaTeX delimiters `\[...\]` and
+`\(...\)`, which GitHub does not recognize at all, so every formula in the
+document rendered as literal backslashes. The fenced form was chosen over `$$`
+on purpose: the document is about money, and the first time someone writes a
+figure with a dollar sign in a paragraph, a stray `$` would start swallowing
+text until the next one.
+
 ## Open items carried forward
 
 **Synchronous transcription exceeds firmware timeout.** `kResponseTimeoutMs = 8000`

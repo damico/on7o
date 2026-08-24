@@ -19,9 +19,9 @@ The visualization is not the HCIN itself. It is a **computed view** of the HCIN 
 
 A useful abstraction is:
 
-\[
+```math
 Visualization = \Phi(HCIN, t, context, goal)
-\]
+```
 
 For this projection:
 
@@ -346,33 +346,33 @@ The timestamps are critical because the geometry of the network depends on time.
 
 Let:
 
-\[
+```math
 I_{ij}
-\]
+```
 
-be the set of interactions between people \(i\) and \(j\).
+be the set of interactions between people $i$ and $j$.
 
 A useful initial proximity function is:
 
-\[
+```math
 P_{ij}(t)
 =
 \sum_{k \in I_{ij}}
 q_k \cdot \delta^{d_k}
-\]
+```
 
 where:
 
-- \(P_{ij}(t)\) is the interactional proximity at time \(t\);
-- \(q_k\) is the weight of interaction \(k\);
-- \(d_k\) is the number of elapsed 24-hour periods since interaction \(k\);
-- \(\delta\), with \(0 < \delta < 1\), is the daily decay factor.
+- $P_{ij}(t)$ is the interactional proximity at time $t$;
+- $q_k$ is the weight of interaction $k$;
+- $d_k$ is the number of elapsed 24-hour periods since interaction $k$;
+- $\delta$, with $0 < \delta < 1$, is the daily decay factor.
 
 For example, if:
 
-\[
+```math
 \delta = 0.9
-\]
+```
 
 then an interaction contributes approximately:
 
@@ -397,7 +397,7 @@ A faster decay may better emphasize current activity.
 
 Not all interactions need to contribute equally.
 
-The \(q_k\) factor can encode interaction importance.
+The $q_k$ factor can encode interaction importance.
 
 Example initial values:
 
@@ -423,13 +423,13 @@ The visual distance can be derived inversely from proximity.
 
 A simple function is:
 
-\[
+```math
 D_{ij}(t)
 =
 \frac{1}{\epsilon + P_{ij}(t)}
-\]
+```
 
-where \(\epsilon\) prevents division by zero.
+where $\epsilon$ prevents division by zero.
 
 Conceptually:
 
@@ -463,9 +463,9 @@ person appears far from Me
 
 In the rendering layer, the value should be normalized to:
 
-\[
+```math
 D_{min} \le D_{visual} \le D_{max}
-\]
+```
 
 to prevent extreme layouts.
 
@@ -494,19 +494,19 @@ but the relationship has a very large financial volume.
 
 Therefore an initial financial magnitude measure should be:
 
-\[
+```math
 F_{ij}
 =
 \sum_k |amount_k|
-\]
+```
 
 rather than:
 
-\[
+```math
 \left|
 \sum_k amount_k
 \right|
-\]
+```
 
 The first measures the volume of financial exposure.
 
@@ -524,20 +524,20 @@ A linear mapping can make a few large relationships visually dominate the entire
 
 A logarithmic mapping is more appropriate:
 
-\[
+```math
 R_i
 =
 R_{min}
 +
 \alpha \log(1 + F_i)
-\]
+```
 
 where:
 
-- \(R_i\) is the displayed node radius;
-- \(F_i\) is the gross financial magnitude associated with person \(i\);
-- \(R_{min}\) is the minimum node radius;
-- \(\alpha\) is a visual scaling constant.
+- $R_i$ is the displayed node radius;
+- $F_i$ is the gross financial magnitude associated with person $i$;
+- $R_{min}$ is the minimum node radius;
+- $\alpha$ is a visual scaling constant.
 
 The projection configuration should define minimum and maximum radii.
 
@@ -572,9 +572,9 @@ The Financial Projection can be described as one projection of the HCIN Core Mod
 
 A useful initial formalization is:
 
-\[
+```math
 HCIN = (V,E,L,T,C,P,G)
-\]
+```
 
 where:
 
@@ -637,37 +637,37 @@ G
 
 A conventional graph starts with:
 
-\[
+```math
 e = (A,B)
-\]
+```
 
 meaning only that two nodes are connected.
 
 A semantic graph may evolve this to:
 
-\[
+```math
 e = (A,r,B)
-\]
+```
 
-where \(r\) gives the relationship a meaning.
+where $r$ gives the relationship a meaning.
 
 HCIN requires a richer qualified relationship:
 
-\[
+```math
 e =
 (A,B,l,t,c,p,g,\mathbf{w})
-\]
+```
 
 where:
 
-- \(A\) = source entity;
-- \(B\) = target entity;
-- \(l\) = relational layer;
-- \(t\) = temporal state;
-- \(c\) = context;
-- \(p\) = perspective and epistemic metadata;
-- \(g\) = goal or interest under which the relation is being evaluated;
-- \(\mathbf{w}\) = multidimensional relationship vector.
+- $A$ = source entity;
+- $B$ = target entity;
+- $l$ = relational layer;
+- $t$ = temporal state;
+- $c$ = context;
+- $p$ = perspective and epistemic metadata;
+- $g$ = goal or interest under which the relation is being evaluated;
+- $\mathbf{w}$ = multidimensional relationship vector.
 
 The relationship is therefore not a static line.
 
@@ -679,7 +679,7 @@ It is a contextual, temporal, perspectival object.
 
 For the Financial Projection, an initial relationship vector may be:
 
-\[
+```math
 \mathbf{w}_{ij}(t)
 =
 [
@@ -689,7 +689,7 @@ A_{authority},
 D_{dependency},
 R_{reciprocity}
 ]
-\]
+```
 
 where:
 
@@ -741,19 +741,19 @@ This means the diagram is a rendering function over the HCIN state rather than a
 
 The vector changes over time:
 
-\[
+```math
 \mathbf{w}_{ij}(t)
-\]
+```
 
 A useful representation of change between two moments is:
 
-\[
+```math
 \Delta \mathbf{w}_{ij}
 =
 \mathbf{w}_{ij}(t_2)
 -
 \mathbf{w}_{ij}(t_1)
-\]
+```
 
 This allows the system to detect changes such as:
 
@@ -773,12 +773,12 @@ The HCIN can therefore represent not only the current relationship but its traje
 
 The network should be understood as a temporal system:
 
-\[
+```math
 HCIN(t_0),
 HCIN(t_1),
 HCIN(t_2),
 ...
-\]
+```
 
 A relation can change without disappearing.
 
@@ -1427,21 +1427,21 @@ Purpose:
 
 Compute:
 
-\[
+```math
 P_{ij}(t)
-\]
+```
 
-\[
+```math
 D_{ij}(t)
-\]
+```
 
-\[
+```math
 F_{ij}
-\]
+```
 
-\[
+```math
 \mathbf{w}_{ij}(t)
-\]
+```
 
 and generate:
 
