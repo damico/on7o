@@ -33,11 +33,11 @@ A admira B ≠ B admira A
 ### Entidade própria:
 
 Ao invés de apenas:
-
+```
 :Me :trusts :Joao .
-
+```
 Suportar:
-
+```
 :relationship_981
     a hcin:Relationship ;
 
@@ -53,7 +53,7 @@ Suportar:
     hcin:confidence 0.92 ;
 
     prov:wasDerivedFrom :thought_1234 .
-    
+```    
 Que permitirá representações específicas de:
 
 - source
@@ -72,12 +72,12 @@ Que permitirá representações específicas de:
 ### Determinação multimodal da força do relacionamento:
 
 Mesmo sendo viável determinar a força de um relacionamento com:
-
+```
 :Me hcin:relationshipStrength [
     hcin:with :Joao ;
     hcin:value 0.87
 ] .
-
+```
 O valor de 0.87 é insuficiente quando alguém pode ser determinado como:
 
 - proximidade emocional       0.10
@@ -88,7 +88,7 @@ O valor de 0.87 é insuficiente quando alguém pode ser determinado como:
 - confiança pessoal           0.35
 
 Pois uma mesma pessoa, abriga diversas camadas de relacionamento e interessses:
-
+```
                  ┌── Family
                  │
                  ├── Friendship
@@ -102,7 +102,7 @@ Person A ────────┼── Professional
                  ├── Emotional
                  │
                  └── Governance
-                 
+```         
 Interesses, os quais podem funcionar como nova classe de ligação: Pessoas podem ter relacionamentos temporários apenas por interesses comuns, que forçam a existência de tal relacionamento.
 
 ### Suporte a SKOS, FOAF, SIOC, PROV-O e vocab W3C:
@@ -114,7 +114,7 @@ O PROV-O tem um caso de uso importante na rastreabilidade: de qual pensamento, d
 ### on7o como mecanismo de aquisição de conhecimento:
 
 Em uma abordagem bottom-up o on7o serve de base e início como pode ser entendido no diagrama:
-
+```
                  HCIN
                   │
        ┌──────────┴──────────┐
@@ -139,7 +139,7 @@ Em uma abordagem bottom-up o on7o serve de base e início como pode ser entendid
                Human thoughts
                         │
                        on7o
-                      
+```                      
 
 ## A importância de cada papel:
 
@@ -148,27 +148,27 @@ Em uma abordagem bottom-up o on7o serve de base e início como pode ser entendid
 - HCIN é a representação e análise sociocognitiva construída sobre esse conhecimento.
 
 Enquanto milhares de pensamentos capturados ao longo dos anos podem ilustrativamente identificar:
-
+```
 Pessoa A
    ├── aparece em 217 pensamentos
    ├── SciCrop aparece em 163 deles
    ├── M&A aparece em 41
    ├── decisões aparece em 72
    └── confiança explícita aparece em 18
-   
+```  
 e:
-
+```
 Pessoa B
    ├── aparece em 92 pensamentos
    ├── família aparece em 74
    ├── educação aparece em 31
    └── SciCrop aparece em 0
-   
+```   
 Mas que ontologicamente poderiam ser reduzidos a apenas:
-
+```
 :A a foaf:Person .
 :B a foaf:Person .
-
+```
 Enquanto topologicamente são completamente diferentes.
 
 Mais do que isso, o papel do HCIN agregará recursos complementares a OWL:
@@ -235,7 +235,7 @@ e:
 - epistemic status
 
 Com esta complementação a arquitetura do HCIN poderia ser desenhada como um personal knowledge graph:
-
+```
                     HUMAN
                       │
                   thoughts
@@ -273,7 +273,7 @@ Com esta complementação a arquitetura do HCIN poderia ser desenhada como um pe
                   Topology
                      │
              structural insight
-             
+```             
 E dado que este grafo se fundamenta na captura de pensamento de um indivíduo especifico que faz uso do on7o em um dispositivo físico, esta arquiterura embora humana é também ego centrica. No entanto, com consentimento e um mecanismo de compartilhamento seletivo, vários nós pessoais podem formar uma rede federada HCIN: HCIN(A) ←→ HCIN(B) ←→ HCIN(C). Sem exigir necessariamente um redes sociais centralizadas que possuem o social graph inteiro de uma sociedade digital.
 
 No que é apresentado aqui, o on7o passa a ser o sensor epistemológico, e o HCIN, o modelo de inteligência relacional construído a partir dele.
