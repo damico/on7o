@@ -1,0 +1,21 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix ego:   <urn:hcin:person:> .
+@prefix t: <urn:on7o:e09:> .
+
+t:rob a hcin:Person ; hcin:label "Rob" .
+t:xyz a hcin:Organization ; hcin:label "XYZ Company" .
+
+t:membership-rob a hcin:Membership ;
+    hcin:member          t:rob ;
+    hcin:memberOf        t:xyz ;
+    hcin:role            "Partnerships" ;
+    hcin:validFrom       "2024-01-01T00:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:interaction-rob a hcin:Interaction ;
+    hcin:participant     ego:me , t:rob ;
+    hcin:interactionType "phoneCall" ;
+    hcin:occurredAt      "2026-07-28T09:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .

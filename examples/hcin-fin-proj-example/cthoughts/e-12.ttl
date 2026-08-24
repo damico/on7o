@@ -1,0 +1,15 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix ego:   <urn:hcin:person:> .
+@prefix t: <urn:on7o:e12:> .
+
+ego:me      a hcin:Person       ; hcin:label "Me" .
+t:mycompany a hcin:Organization ; hcin:label "My Company" .
+
+t:membership-me a hcin:Membership ;
+    hcin:member          ego:me ;
+    hcin:memberOf        t:mycompany ;
+    hcin:role            "Owner" ;
+    hcin:validFrom       "2021-01-01T00:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .

@@ -89,6 +89,52 @@ public interface Constants {
     // Stage 3 - cThought: consolidated ontology
     // -------------------------------------------------------------------------
 
+    /** URI of the speaker, the person every thought is told from the point of view of. */
+    String EGO_URI = "urn:hcin:person:me";
+
+    /**
+     * Asks the consolidation stage to write the parts the HCIN understands in
+     * the HCIN's own terms.
+     *
+     * <p>Reconciliation reads people, organizations and claims out of any
+     * vocabulary, but an interaction, a payment or an authority carries more
+     * structure than a triple: a time, an amount, a currency, a direction, a
+     * scope. Those only survive the merge if they arrive already shaped, so this
+     * says exactly which shapes to use.
+     *
+     * <p>The instruction is additive. A thought with no meeting and no money in
+     * it produces none of these and is consolidated exactly as before.
+     */
+    String HCIN_MAPPING =
+        "Additionally, whenever the thought mentions one of the following, express it using the "
+        + "HCIN vocabulary, in the same Turtle output:\n"
+        + "@prefix hcin:  <http://on7o.io/hcin#> .\n"
+        + "@prefix hcinf: <http://on7o.io/hcin/financial#> .\n"
+        + "@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .\n\n"
+        + "- A person:        a hcin:Person, with hcin:label naming them.\n"
+        + "- An organization: a hcin:Organization, with hcin:label naming it.\n"
+        + "- Belonging:       a hcin:Membership with hcin:member, hcin:memberOf, "
+        + "optional hcin:role, optional hcin:validFrom and hcin:validTo.\n"
+        + "- Any meeting, call, message or mention between the speaker and someone else: "
+        + "a hcin:Interaction with hcin:participant <" + EGO_URI + "> and the other person, "
+        + "hcin:occurredAt as an xsd:dateTime, and hcin:interactionType as one of "
+        + "\"meeting\", \"strategicMeeting\", \"phoneCall\", \"message\", \"mention\", "
+        + "\"financialNegotiation\" or \"financialTransaction\".\n"
+        + "- Money moving:    a hcinf:FinancialFlow with hcinf:flowSource, hcinf:flowTarget, "
+        + "hcinf:direction (hcinf:Inflow when money reaches the speaker, hcinf:Outflow when it "
+        + "leaves), hcinf:amount as an xsd:decimal, hcinf:currency as an ISO 4217 code, and "
+        + "hcin:occurredAt.\n"
+        + "- Power over money: a hcinf:FinancialAuthority with hcinf:holder, hcinf:organization, "
+        + "hcinf:authorityType (hcinf:ExpenditureAuthority or hcinf:RevenueAuthority), and "
+        + "hcinf:scope ONLY when the user actually said what it covers.\n\n"
+        + "Rules for this part:\n"
+        + "- The speaker is always <" + EGO_URI + ">.\n"
+        + "- Never invent a scope, an amount, a currency or a date. Leaving a field out is "
+        + "correct when the thought does not say it; inventing one is not.\n"
+        + "- One approval is one approval. Do not describe it as standing or unrestricted "
+        + "authority, and do not give it an end date the user did not state.\n"
+        + "- Mark with hcin:knowledgeStatus hcin:Asserted only what the user stated or confirmed.\n\n";
+
     String PROMPT_CTHOUGHT =
         "You are an ontology engineer. You receive:\n"
         + "- rThought: raw OWL Turtle extracted from a speech transcription\n"
@@ -102,6 +148,7 @@ public interface Constants {
         + "    on7o:knowledgeStatus one of (on7o:Asserted | on7o:Inferred | on7o:Hypothesized)\n"
         + "    on7o:confidence a decimal in [0.0, 1.0]\n"
         + "- Emits on7o:ClarificationQuestion for anything the user left unanswered\n\n"
+        + HCIN_MAPPING
         + "Use prefix: @prefix on7o: <http://on7o.io/ontology#> .\n"
         + "Return ONLY valid Turtle RDF. No prose, no markdown fences.";
 

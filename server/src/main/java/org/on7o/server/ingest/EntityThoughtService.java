@@ -1,5 +1,6 @@
 package org.on7o.server.ingest;
 
+import org.on7o.server.clarification.ClarificationService;
 import org.on7o.server.llm.EntityCandidate;
 import org.on7o.server.llm.InterpretationException;
 import org.on7o.server.llm.QThoughtResult;
@@ -39,12 +40,15 @@ public class EntityThoughtService {
     private final ThoughtStore store;
     private final ThoughtInterpreter interpreter;
     private final TurtleDiagramParser diagramParser;
+    private final ClarificationService clarification;
 
     public EntityThoughtService(ThoughtStore store, ThoughtInterpreter interpreter,
-                                TurtleDiagramParser diagramParser) {
+                                TurtleDiagramParser diagramParser,
+                                ClarificationService clarification) {
         this.store = store;
         this.interpreter = interpreter;
         this.diagramParser = diagramParser;
+        this.clarification = clarification;
         this.stageLookups = Map.of(
                 "rthought", store::findRawThought,
                 "qthought", store::findQuestionsThought,
@@ -130,7 +134,8 @@ public class EntityThoughtService {
 
         Thought derived = store.createDerivedThought(parentId, entityLabel, context);
         QThoughtResult qt = interpreter.questionEntity(entityLabel, context);
-        store.saveQuestionsThought(derived.id(), qt.turtle(), qt.questions());
+        store.saveQuestionsThought(derived.id(), qt.turtle());
+        clarification.replaceQuestions(derived.id(), qt.questions());
         return derived;
     }
 }

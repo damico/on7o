@@ -1,0 +1,268 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+# Severity carries meaning here and is read back by the validation service:
+#
+#   sh:Violation  the data is wrong and must not be trusted
+#   sh:Warning    the data is usable but incomplete
+#   sh:Info       something is missing that a user could be asked about
+#
+# The third is the interesting one: a knowledge gap is not an error. A financial
+# flow with no amount is exactly the kind of thing the clarification pipeline
+# exists to ask about.
+
+# -----------------------------------------------------------------------------
+# Interactions
+# -----------------------------------------------------------------------------
+
+hcin:InteractionShape a sh:NodeShape ;
+    sh:targetClass hcin:Interaction ;
+    rdfs:comment "An interaction without a timestamp cannot contribute to proximity, which is entirely a function of when things happened." ;
+
+    sh:property [
+        sh:path     hcin:occurredAt ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message  "an interaction must say when it occurred, exactly once" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcin:participant ;
+        sh:minCount 2 ;
+        sh:severity sh:Violation ;
+        sh:message  "an interaction needs at least two participants" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcin:interactionType ;
+        sh:datatype xsd:string ;
+        sh:maxCount 1 ;
+        sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message  "an interaction with no type is weighted as a bare mention" ;
+    ] .
+
+# -----------------------------------------------------------------------------
+# Financial flows
+# -----------------------------------------------------------------------------
+
+hcinf:FinancialFlowShape a sh:NodeShape ;
+    sh:targetClass hcinf:FinancialFlow ;
+
+    sh:property [
+        sh:path     hcinf:flowSource ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message  "a flow must say where the money came from" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcinf:flowTarget ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message  "a flow must say where the money went" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcin:occurredAt ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message  "a flow must say when it happened, or it cannot be placed in time" ;
+    ] ;
+
+    sh:property [
+        sh:path         hcinf:amount ;
+        sh:datatype     xsd:decimal ;
+        sh:maxCount     1 ;
+        sh:minCount     1 ;
+        sh:minExclusive 0 ;
+        sh:severity     sh:Info ;
+        sh:message      "the amount of this flow is unknown or not positive; direction already carries the sign" ;
+    ] ;
+
+    sh:property [
+        sh:path      hcinf:currency ;
+        sh:datatype  xsd:string ;
+        sh:pattern   "^[A-Z]{3}$" ;
+        sh:minCount  1 ;
+        sh:maxCount  1 ;
+        sh:severity  sh:Violation ;
+        sh:message   "an amount without an ISO 4217 currency cannot be compared to anything" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcinf:direction ;
+        sh:in       ( hcinf:Inflow hcinf:Outflow ) ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message  "a flow must be an inflow or an outflow, read from the ego" ;
+    ] .
+
+# -----------------------------------------------------------------------------
+# Financial authority
+# -----------------------------------------------------------------------------
+
+hcinf:FinancialAuthorityShape a sh:NodeShape ;
+    sh:targetClass hcinf:FinancialAuthority ;
+    rdfs:comment "Authority is the claim most easily overstated: one approval is not permanent unrestricted power. Missing scope and missing validity are therefore reported as things to ask about, not quietly accepted as unlimited." ;
+
+    sh:property [
+        sh:path     hcinf:holder ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message  "authority must be held by someone" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcinf:organization ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:severity sh:Warning ;
+        sh:message  "authority with no organization behind it cannot be scoped to a context" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcinf:authorityType ;
+        sh:in       ( hcinf:ExpenditureAuthority hcinf:RevenueAuthority ) ;
+        sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message  "authority should say whether it is over money going out or coming in" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcinf:scope ;
+        sh:minCount 1 ;
+        sh:severity sh:Info ;
+        sh:message  "the scope of this authority is unknown; ask before treating it as unrestricted" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcin:validFrom ;
+        sh:datatype xsd:dateTime ;
+        sh:minCount 1 ;
+        sh:severity sh:Info ;
+        sh:message  "the authority has no start date; ask when it began before reading it into the past" ;
+    ] .
+
+# -----------------------------------------------------------------------------
+# Time
+# -----------------------------------------------------------------------------
+
+hcin:TemporalConsistencyShape a sh:NodeShape ;
+    sh:targetSubjectsOf hcin:validFrom ;
+    rdfs:comment "A fact cannot stop being true before it starts." ;
+
+    sh:property [
+        sh:path              hcin:validFrom ;
+        sh:datatype          xsd:dateTime ;
+        sh:lessThanOrEquals  hcin:validTo ;
+        sh:severity          sh:Violation ;
+        sh:message           "validFrom must not be later than validTo" ;
+    ] .
+
+# -----------------------------------------------------------------------------
+# Provenance
+# -----------------------------------------------------------------------------
+
+hcin:ProvenanceShape a sh:NodeShape ;
+    sh:targetClass hcin:Relationship, hcin:Interaction, hcin:Membership,
+                   hcinf:FinancialFlow, hcinf:FinancialAuthority ;
+    rdfs:comment "Anything that is not vocabulary has to say where it came from. A statement with no evidence behind it cannot be explained, and an HCIN that cannot explain itself is just a graph." ;
+
+    sh:property [
+        sh:path     hcin:wasDerivedFrom ;
+        sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message  "this statement has no evidence behind it" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcin:knowledgeStatus ;
+        sh:in       ( hcin:Asserted hcin:Inferred hcin:Hypothesized ) ;
+        sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message  "this statement does not say whether it was asserted, inferred or merely hypothesized" ;
+    ] ;
+
+    sh:property [
+        sh:path         hcin:confidence ;
+        sh:datatype     xsd:decimal ;
+        sh:minInclusive 0.0 ;
+        sh:maxInclusive 1.0 ;
+        sh:maxCount     1 ;
+        sh:severity     sh:Violation ;
+        sh:message      "confidence must be a decimal between 0.0 and 1.0" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcin:observedAt ;
+        sh:datatype xsd:dateTime ;
+        sh:maxCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message  "without an observation time, this fact cannot be placed in what the system knew when" ;
+    ] .
+
+# -----------------------------------------------------------------------------
+# People and organizations
+# -----------------------------------------------------------------------------
+
+hcin:PersonShape a sh:NodeShape ;
+    sh:targetClass hcin:Person ;
+
+    sh:property [
+        sh:path     hcin:label ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message  "a person must have the name the ego knows them by" ;
+    ] .
+
+hcin:OrganizationShape a sh:NodeShape ;
+    sh:targetClass hcin:Organization ;
+
+    sh:property [
+        sh:path     hcin:label ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message  "an organization must have a name" ;
+    ] .
+
+hcin:MembershipShape a sh:NodeShape ;
+    sh:targetClass hcin:Membership ;
+
+    sh:property [
+        sh:path     hcin:member ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message  "a membership must say who belongs" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcin:memberOf ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message  "a membership must say what they belong to" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcin:role ;
+        sh:minCount 1 ;
+        sh:severity sh:Info ;
+        sh:message  "the role in this membership is unknown; it is worth asking what they do there" ;
+    ] .

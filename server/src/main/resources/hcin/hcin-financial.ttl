@@ -1,0 +1,104 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+<http://on7o.io/hcin/financial> a owl:Ontology ;
+    owl:imports  <http://on7o.io/hcin> ;
+    rdfs:label   "HCIN financial vocabulary" ;
+    rdfs:comment "The financial layer of the HCIN: where money went, how much of it, and who decides. Kept apart from the core so that the core stays usable by projections that have nothing to do with money." .
+
+# -----------------------------------------------------------------------------
+# Flow: where the money actually went
+# -----------------------------------------------------------------------------
+
+hcinf:FinancialFlow a owl:Class ;
+    rdfs:label   "Financial flow" ;
+    rdfs:comment "Money moving from one entity to another at a point in time. Direction and amount are stored as facts; the colour a projection draws them in is not." .
+
+hcinf:FlowDirection a owl:Class ;
+    rdfs:label   "Flow direction" ;
+    rdfs:comment "Which way the money moved, read from the ego's point of view." .
+
+hcinf:Inflow a hcinf:FlowDirection ;
+    rdfs:label "Inflow" ; rdfs:comment "Money entering the ego's financial sphere." .
+
+hcinf:Outflow a hcinf:FlowDirection ;
+    rdfs:label "Outflow" ; rdfs:comment "Money leaving the ego's financial sphere." .
+
+hcinf:flowSource a owl:ObjectProperty ;
+    rdfs:domain hcinf:FinancialFlow ; rdfs:range hcin:Entity ;
+    rdfs:label  "flow source" ; rdfs:comment "Who the money came from." .
+
+hcinf:flowTarget a owl:ObjectProperty ;
+    rdfs:domain hcinf:FinancialFlow ; rdfs:range hcin:Entity ;
+    rdfs:label  "flow target" ; rdfs:comment "Who the money went to." .
+
+hcinf:direction a owl:ObjectProperty ;
+    rdfs:domain hcinf:FinancialFlow ; rdfs:range hcinf:FlowDirection ;
+    rdfs:label  "direction" .
+
+hcinf:amount a owl:DatatypeProperty ;
+    rdfs:range xsd:decimal ;
+    rdfs:label  "amount" ;
+    rdfs:comment "How much money moved, as a decimal. Never a floating point value: money that cannot be added exactly is not money." .
+
+hcinf:currency a owl:DatatypeProperty ;
+    rdfs:range xsd:string ;
+    rdfs:label  "currency" ;
+    rdfs:comment "ISO 4217 code. Required wherever an amount appears: an amount without a currency cannot be compared to anything." .
+
+# -----------------------------------------------------------------------------
+# Magnitude: how much money the relationship moves
+# -----------------------------------------------------------------------------
+
+hcinf:FinancialMagnitude a owl:Class ;
+    rdfs:label   "Financial magnitude" ;
+    rdfs:comment "The volume of money a relationship moves, as opposed to what is left over. A relationship carrying a million in and almost a million out is a large financial relationship with a small net balance, and the two answer different questions." .
+
+hcinf:FinancialDependency a owl:Class ;
+    rdfs:label   "Financial dependency" ;
+    rdfs:comment "One party relying on another for money. Asymmetric by nature: the ego depending on Bob is a different fact from Bob depending on the ego." .
+
+# -----------------------------------------------------------------------------
+# Authority: who decides, whether or not they touch the money
+# -----------------------------------------------------------------------------
+
+hcinf:FinancialAuthority a owl:Class ;
+    rdfs:label   "Financial authority" ;
+    rdfs:comment "The power to decide about money, held by someone, inside some organization, over some period and within some scope. Independent of flow: a person can approve payments they never receive." .
+
+hcinf:AuthorityType a owl:Class ;
+    rdfs:label "Authority type" .
+
+hcinf:ExpenditureAuthority a hcinf:AuthorityType ;
+    rdfs:label "Expenditure authority" ; rdfs:comment "Power over money going out." .
+
+hcinf:RevenueAuthority a hcinf:AuthorityType ;
+    rdfs:label "Revenue authority" ; rdfs:comment "Power over money coming in." .
+
+hcinf:FinancialDecisionScope a owl:Class ;
+    rdfs:label   "Financial decision scope" ;
+    rdfs:comment "What an authority actually covers: a contract, a project, a category of expense. A scope is what keeps one approval from being read as permanent, unrestricted power." .
+
+hcinf:holder a owl:ObjectProperty ;
+    rdfs:domain hcinf:FinancialAuthority ; rdfs:range hcin:Person ;
+    rdfs:label  "holder" .
+
+hcinf:organization a owl:ObjectProperty ;
+    rdfs:domain hcinf:FinancialAuthority ; rdfs:range hcin:Organization ;
+    rdfs:label  "organization" .
+
+hcinf:authorityType a owl:ObjectProperty ;
+    rdfs:domain hcinf:FinancialAuthority ; rdfs:range hcinf:AuthorityType ;
+    rdfs:label  "authority type" .
+
+hcinf:scope a owl:ObjectProperty ;
+    rdfs:domain hcinf:FinancialAuthority ;
+    rdfs:label  "scope" ;
+    rdfs:comment "What the authority covers. Absent scope means unknown, never unlimited." .
+
+hcinf:spendingLimit a owl:DatatypeProperty ;
+    rdfs:domain hcinf:FinancialAuthority ; rdfs:range xsd:decimal ;
+    rdfs:label  "spending limit" .

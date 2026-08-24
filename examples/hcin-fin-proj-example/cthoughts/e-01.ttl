@@ -1,0 +1,33 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix ego:   <urn:hcin:person:> .
+@prefix t: <urn:on7o:e01:> .
+
+t:bob a hcin:Person ; hcin:label "Bob" .
+t:acme a hcin:Organization ; hcin:label "ACME Company" .
+
+t:membership-bob a hcin:Membership ;
+    hcin:member          t:bob ;
+    hcin:memberOf        t:acme ;
+    hcin:role            "Delivery lead" ;
+    hcin:validFrom       "2024-01-01T00:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:interaction-bob a hcin:Interaction ;
+    hcin:participant     ego:me , t:bob ;
+    hcin:interactionType "meeting" ;
+    hcin:occurredAt      "2026-08-24T14:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:interaction-bob-2 a hcin:Interaction ;
+    hcin:participant     ego:me , t:bob ;
+    hcin:interactionType "meeting" ;
+    hcin:occurredAt      "2026-08-17T14:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:interaction-bob-3 a hcin:Interaction ;
+    hcin:participant     ego:me , t:bob ;
+    hcin:interactionType "meeting" ;
+    hcin:occurredAt      "2026-08-10T14:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .

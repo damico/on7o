@@ -1,0 +1,44 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix ego:   <urn:hcin:person:> .
+@prefix t: <urn:on7o:e02:> .
+
+t:carol a hcin:Person       ; hcin:label "Carol" .
+t:acme  a hcin:Organization ; hcin:label "ACME Company" .
+
+t:membership-carol a hcin:Membership ;
+    hcin:member          t:carol ;
+    hcin:memberOf        t:acme ;
+    hcin:role            "Revenue director" ;
+    hcin:validFrom       "2023-02-01T00:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:call a hcin:Interaction ;
+    hcin:participant     ego:me , t:carol ;
+    hcin:interactionType "phoneCall" ;
+    hcin:occurredAt      "2026-08-23T13:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:meeting a hcin:Interaction ;
+    hcin:participant     ego:me , t:carol ;
+    hcin:interactionType "meeting" ;
+    hcin:occurredAt      "2026-08-16T13:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:release a hcinf:FinancialFlow ;
+    hcinf:flowSource     t:carol ;
+    hcinf:flowTarget     ego:me ;
+    hcinf:direction      hcinf:Inflow ;
+    hcinf:amount         "85000.00"^^xsd:decimal ;
+    hcinf:currency       "BRL" ;
+    hcin:occurredAt      "2026-08-16T13:30:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:carol-authority a hcinf:FinancialAuthority ;
+    hcinf:holder         t:carol ;
+    hcinf:organization   t:acme ;
+    hcinf:authorityType  hcinf:RevenueAuthority ;
+    hcinf:scope          "ACME revenue approvals" ;
+    hcin:validFrom       "2023-02-01T00:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .

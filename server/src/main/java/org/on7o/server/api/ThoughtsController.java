@@ -47,6 +47,9 @@ public class ThoughtsController {
     public ResponseEntity<Resource> audio(@PathVariable String id) {
         return store.find(id)
                 .map(thought -> {
+                    if (!thought.isAudio()) {
+                        return ResponseEntity.notFound().<Resource>build();
+                    }
                     Path path = store.audioPath(thought);
                     if (!Files.isReadable(path)) {
                         return ResponseEntity.notFound().<Resource>build();

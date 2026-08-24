@@ -1,5 +1,7 @@
 package org.on7o.server.web;
 
+import org.on7o.server.clarification.ClarificationQuestion;
+import org.on7o.server.clarification.ClarificationService;
 import org.on7o.server.ingest.Thought;
 import org.on7o.server.ingest.ThoughtStore;
 import org.on7o.server.stt.Transcription;
@@ -9,7 +11,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -22,9 +26,11 @@ import java.util.Optional;
 public class QuestionsController {
 
     private final ThoughtStore store;
+    private final ClarificationService clarification;
 
-    public QuestionsController(ThoughtStore store) {
+    public QuestionsController(ThoughtStore store, ClarificationService clarification) {
         this.store = store;
+        this.clarification = clarification;
     }
 
     /**
@@ -42,8 +48,8 @@ public class QuestionsController {
         }
         Thought thought = thoughtOpt.get();
 
-        Optional<List<String>> questionsOpt = store.findQuestions(id);
-        if (questionsOpt.isEmpty()) {
+        List<ClarificationQuestion> questions = clarification.activeQuestions(id);
+        if (questions.isEmpty()) {
             return "redirect:/";
         }
 
@@ -51,7 +57,9 @@ public class QuestionsController {
         Optional<String> cThoughtOpt = store.findConsolidatedThought(id);
 
         model.addAttribute("thoughtId", id);
-        model.addAttribute("questions", questionsOpt.get());
+        model.addAttribute("questions", questions);
+        model.addAttribute("questionIds", questions.stream().map(ClarificationQuestion::id).toList());
+        model.addAttribute("answers", currentAnswerTexts(id));
         model.addAttribute("transcriptionText",
                 transcriptionOpt.map(Transcription::text).orElse(""));
         model.addAttribute("hasCThought", cThoughtOpt.isPresent());
@@ -61,5 +69,22 @@ public class QuestionsController {
         model.addAttribute("parentId", thought.parentId());
 
         return "questions";
+    }
+
+    /**
+     * The current answer to each question, so that reopening the page shows what
+     * the user already wrote instead of an empty form.
+     *
+     * <p>A skipped question maps to nothing: the user declined it, and showing
+     * them a blank box is exactly right.
+     */
+    private Map<String, String> currentAnswerTexts(String thoughtId) {
+        Map<String, String> texts = new LinkedHashMap<>();
+        clarification.currentAnswers(thoughtId).forEach((questionId, revision) -> {
+            if (revision.answer() != null) {
+                texts.put(questionId, revision.answer());
+            }
+        });
+        return texts;
     }
 }

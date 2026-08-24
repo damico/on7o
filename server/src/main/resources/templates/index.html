@@ -11,6 +11,7 @@
 
 <header class="site-header">
     <span class="site-logo">on7o <span>thoughts</span></span>
+    <a class="site-nav-link" href="/hcin/financial">financial projection</a>
     <span class="thought-time" th:text="${total} + ' captured'"></span>
 </header>
 
@@ -23,8 +24,9 @@
         <div class="thought-item" th:each="t : ${thoughts}" th:id="'thought-' + ${t.id}">
             <div class="thought-meta">
                 <span class="thought-time" th:text="${t.capturedAt}"></span>
-                <span th:unless="${t.derived}" class="thought-duration" th:text="${t.duration}"></span>
-                <span th:unless="${t.derived}" class="thought-device" th:text="${t.deviceId}"></span>
+                <span th:if="${t.audio}" class="thought-duration" th:text="${t.duration}"></span>
+                <span th:if="${t.audio}" class="thought-device" th:text="${t.deviceId}"></span>
+                <span th:if="${!t.audio and !t.derived}" class="thought-device" th:text="${t.source}"></span>
                 <a th:if="${t.derived}" class="thought-device" th:href="'/#thought-' + ${t.parentId}"
                    th:text="'from ' + ${t.parentId}"></a>
 

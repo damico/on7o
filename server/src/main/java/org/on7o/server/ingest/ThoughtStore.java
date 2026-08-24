@@ -1,5 +1,6 @@
 package org.on7o.server.ingest;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -123,8 +124,41 @@ public class ThoughtStore {
                     format.bitsPerSample(),
                     remoteAddress,
                     null,
-                    null);
+                    null,
+                    Thought.SOURCE_AUDIO);
 
+            objectMapper.writerWithDefaultPrettyPrinter()
+                    .writeValue(dir.resolve(META_FILE).toFile(), thought);
+            return thought;
+        } catch (IOException | RuntimeException e) {
+            deleteQuietly(dir);
+            throw e;
+        }
+    }
+
+    /**
+     * Creates a thought whose content arrived as plain text rather than as audio.
+     *
+     * <p>Only the metadata file is written: there is no audio to store, and the
+     * transcription is saved separately by the caller so that a text thought
+     * looks exactly like a transcribed capture to every downstream stage.
+     *
+     * @param capturedAt    when the thought happened in the world, as stated by the caller
+     * @param source        origin label, for example {@link Thought#SOURCE_SYNTHETIC}
+     * @param remoteAddress address the request came from, or null
+     * @return the newly created thought
+     */
+    public Thought createTextThought(Instant capturedAt, String source, String remoteAddress)
+            throws IOException {
+
+        Instant receivedAt = Instant.now();
+        String id = newId(receivedAt);
+        Path dir = root.resolve(id);
+        Files.createDirectories(dir);
+
+        try {
+            Thought thought = new Thought(id, null, capturedAt, receivedAt, null,
+                    0, 0, 0, 0, 0, 0, remoteAddress, null, null, source);
             objectMapper.writerWithDefaultPrettyPrinter()
                     .writeValue(dir.resolve(META_FILE).toFile(), thought);
             return thought;
@@ -150,7 +184,7 @@ public class ThoughtStore {
         Files.createDirectories(dir);
 
         Thought thought = new Thought(id, null, now, now, null, 0, 0, 0, 0, 0, 0, null,
-                parentId, entityLabel);
+                parentId, entityLabel, Thought.SOURCE_DERIVED);
         objectMapper.writerWithDefaultPrettyPrinter()
                 .writeValue(dir.resolve(META_FILE).toFile(), thought);
         Files.writeString(dir.resolve(ENTITY_CONTEXT_FILE), context == null ? "" : context);
@@ -210,7 +244,16 @@ public class ThoughtStore {
         }
     }
 
+    /**
+     * Location of a capture's audio file.
+     *
+     * @throws IllegalArgumentException when the thought carries no audio, as is
+     *         the case for derived and text thoughts
+     */
     public Path audioPath(Thought thought) {
+        if (thought.audioFile() == null) {
+            throw new IllegalArgumentException("thought has no audio: " + thought.id());
+        }
         return resolveSafely(thought.id()).resolve(thought.audioFile());
     }
 
@@ -224,12 +267,9 @@ public class ThoughtStore {
         return readText(resolveSafely(id).resolve(RTHOUGHT_FILE));
     }
 
-    /** Saves the questioned ontology and the plain-language questions list (stage 2). */
-    public void saveQuestionsThought(String id, String turtle, List<String> questions) throws IOException {
-        Path dir = resolveSafely(id);
-        Files.writeString(dir.resolve(QTHOUGHT_FILE), turtle);
-        objectMapper.writerWithDefaultPrettyPrinter()
-                .writeValue(dir.resolve(QUESTIONS_FILE).toFile(), questions);
+    /** Saves the questioned ontology Turtle (stage 2). */
+    public void saveQuestionsThought(String id, String turtle) throws IOException {
+        Files.writeString(resolveSafely(id).resolve(QTHOUGHT_FILE), turtle);
     }
 
     /** Loads the questioned ontology Turtle, if it exists. */
@@ -237,38 +277,38 @@ public class ThoughtStore {
         return readText(resolveSafely(id).resolve(QTHOUGHT_FILE));
     }
 
-    /** Loads the plain-language questions, if they exist. */
-    @SuppressWarnings("unchecked")
-    public Optional<List<String>> findQuestions(String id) {
-        Path f = resolveSafely(id).resolve(QUESTIONS_FILE);
-        if (!Files.isRegularFile(f)) {
-            return Optional.empty();
-        }
-        try {
-            return Optional.of(objectMapper.readValue(f.toFile(), List.class));
-        } catch (IOException e) {
-            log.warn("unreadable questions for thought {}", id, e);
-            return Optional.empty();
-        }
-    }
-
-    /** Saves the user's answers to the clarification questions (stage 3 input). */
-    public void saveAnswers(String id, List<String> answers) throws IOException {
+    /**
+     * Writes an arbitrary artifact as JSON inside a thought's directory.
+     *
+     * <p>Offered as a primitive so that clarification, and later HCIN, can own
+     * the shape of what they persist while path safety stays in one place here.
+     *
+     * @param id       thought id
+     * @param filename name of the file inside the thought directory
+     * @param value    the object to serialize
+     */
+    public void saveJson(String id, String filename, Object value) throws IOException {
         objectMapper.writerWithDefaultPrettyPrinter()
-                .writeValue(resolveSafely(id).resolve(ANSWERS_FILE).toFile(), answers);
+                .writeValue(resolveSafely(id).resolve(filename).toFile(), value);
     }
 
-    /** Loads the user's answers, if they have been submitted. */
-    @SuppressWarnings("unchecked")
-    public Optional<List<String>> findAnswers(String id) {
-        Path f = resolveSafely(id).resolve(ANSWERS_FILE);
-        if (!Files.isRegularFile(f)) {
+    /**
+     * Reads a JSON artifact from a thought's directory.
+     *
+     * @param id       thought id
+     * @param filename name of the file inside the thought directory
+     * @param type     the shape to read it back as
+     * @return the parsed value, or empty when the file is absent or unreadable
+     */
+    public <T> Optional<T> readJson(String id, String filename, TypeReference<T> type) {
+        Path file = resolveSafely(id).resolve(filename);
+        if (!Files.isRegularFile(file)) {
             return Optional.empty();
         }
         try {
-            return Optional.of(objectMapper.readValue(f.toFile(), List.class));
+            return Optional.of(objectMapper.readValue(file.toFile(), type));
         } catch (IOException e) {
-            log.warn("unreadable answers for thought {}", id, e);
+            log.warn("unreadable {} for thought {}", filename, id, e);
             return Optional.empty();
         }
     }

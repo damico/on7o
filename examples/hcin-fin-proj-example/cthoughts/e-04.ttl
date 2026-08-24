@@ -1,0 +1,22 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix ego:   <urn:hcin:person:> .
+@prefix t: <urn:on7o:e04:> .
+
+t:john a hcin:Person ; hcin:label "John Doe" .
+
+t:meeting a hcin:Interaction ;
+    hcin:participant     ego:me , t:john ;
+    hcin:interactionType "meeting" ;
+    hcin:occurredAt      "2026-08-19T16:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:fee a hcinf:FinancialFlow ;
+    hcinf:flowSource     ego:me ;
+    hcinf:flowTarget     t:john ;
+    hcinf:direction      hcinf:Outflow ;
+    hcinf:amount         "12000.00"^^xsd:decimal ;
+    hcinf:currency       "BRL" ;
+    hcin:occurredAt      "2026-08-19T16:30:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .

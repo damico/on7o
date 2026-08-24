@@ -42,11 +42,12 @@
 
         <div th:each="q, i : ${questions}" class="question-block">
             <div class="question-label"
-                 th:text="${i.index + 1} + '. ' + ${q}">
+                 th:text="${i.index + 1} + '. ' + ${q.text}">
             </div>
             <textarea class="question-input"
-                      th:id="'answer-' + ${i.index}"
-                      th:name="'answer-' + ${i.index}"
+                      th:id="'answer-' + ${q.id}"
+                      th:name="'answer-' + ${q.id}"
+                      th:text="${answers.get(q.id)}"
                       placeholder="Your answer..."></textarea>
         </div>
 
@@ -65,7 +66,7 @@
 
 <script th:inline="javascript">
     var THOUGHT_ID = /*[[${thoughtId}]]*/ '';
-    var QUESTION_COUNT = /*[[${#lists.size(questions)}]]*/ 0;
+    var QUESTION_IDS = /*[[${questionIds}]]*/ [];
 
     function submitAnswers() {
         var btn    = document.getElementById('btn-submit');
@@ -73,11 +74,15 @@
         var error  = document.getElementById('consolidate-error');
         var output = document.getElementById('cthought-output');
 
-        var answers = [];
-        for (var i = 0; i < QUESTION_COUNT; i++) {
-            var el = document.getElementById('answer-' + i);
-            answers.push(el ? el.value.trim() : '');
-        }
+        // A question left blank on this page was declined on purpose, so it is
+        // sent as skipped rather than as an empty answer.
+        var answers = QUESTION_IDS.map(function(questionId) {
+            var el = document.getElementById('answer-' + questionId);
+            var text = el ? el.value.trim() : '';
+            return text
+                ? {questionId: questionId, answer: text, skipped: false}
+                : {questionId: questionId, answer: null, skipped: true};
+        });
 
         btn.disabled = true;
         status.style.display = 'inline';
@@ -87,7 +92,7 @@
         fetch('/api/thoughts/' + encodeURIComponent(THOUGHT_ID) + '/answers', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(answers)
+            body: JSON.stringify({answers: answers})
         })
         .then(function(res) {
             if (!res.ok) {

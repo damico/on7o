@@ -63,6 +63,16 @@ public final class ThoughtView {
         return thought.isDerived();
     }
 
+    /** True when this thought has captured audio behind it, rather than text or an entity. */
+    public boolean isAudio() {
+        return thought.isAudio();
+    }
+
+    /** Origin of this thought: audio, derived, or an ingestion label such as synthetic. */
+    public String getSource() {
+        return thought.source();
+    }
+
     /** Label of the entity this thought was derived from, or null when captured from audio. */
     public String getSourceEntity() {
         return thought.sourceEntity();

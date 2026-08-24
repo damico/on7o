@@ -1,0 +1,13 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix ego:   <urn:hcin:person:> .
+@prefix t: <urn:on7o:t004:> .
+
+t:bob a hcin:Person ; hcin:label "Bob" .
+
+t:meeting a hcin:Interaction ;
+    hcin:participant     ego:me , t:bob ;
+    hcin:interactionType "meeting" ;
+    hcin:occurredAt      "2026-08-17T16:20:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .

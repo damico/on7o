@@ -1,0 +1,38 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix ego:   <urn:hcin:person:> .
+@prefix t: <urn:on7o:e05:> .
+
+t:maria a hcin:Person       ; hcin:label "Maria" .
+t:abc   a hcin:Organization ; hcin:label "ABC Company" .
+
+t:membership-maria a hcin:Membership ;
+    hcin:member          t:maria ;
+    hcin:memberOf        t:abc ;
+    hcin:role            "Financial director" ;
+    hcin:validFrom       "2022-03-01T00:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:negotiation a hcin:Interaction ;
+    hcin:participant     ego:me , t:maria ;
+    hcin:interactionType "financialNegotiation" ;
+    hcin:occurredAt      "2026-08-18T10:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:payment a hcinf:FinancialFlow ;
+    hcinf:flowSource     ego:me ;
+    hcinf:flowTarget     t:maria ;
+    hcinf:direction      hcinf:Outflow ;
+    hcinf:amount         "300000.00"^^xsd:decimal ;
+    hcinf:currency       "BRL" ;
+    hcin:occurredAt      "2026-08-18T10:30:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:maria-authority a hcinf:FinancialAuthority ;
+    hcinf:holder         t:maria ;
+    hcinf:organization   t:abc ;
+    hcinf:authorityType  hcinf:ExpenditureAuthority ;
+    hcinf:scope          "ABC contract payments" ;
+    hcin:validFrom       "2022-03-01T00:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .

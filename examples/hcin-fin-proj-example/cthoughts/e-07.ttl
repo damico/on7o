@@ -1,0 +1,21 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix ego:   <urn:hcin:person:> .
+@prefix t: <urn:on7o:e07:> .
+
+t:becca a hcin:Person ; hcin:label "Becca" .
+t:abc a hcin:Organization ; hcin:label "ABC Company" .
+
+t:membership-becca a hcin:Membership ;
+    hcin:member          t:becca ;
+    hcin:memberOf        t:abc ;
+    hcin:role            "Program manager" ;
+    hcin:validFrom       "2024-01-01T00:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:interaction-becca a hcin:Interaction ;
+    hcin:participant     ego:me , t:becca ;
+    hcin:interactionType "phoneCall" ;
+    hcin:occurredAt      "2026-08-11T11:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .

@@ -1,0 +1,48 @@
+{
+  "transcript-001": [
+    { "question": "Bob pertence a ACME?",
+      "answer": "Sim, ele e gerente de contas na ACME desde 2024." },
+    { "question": "Que tipo de encontro foi esse?",
+      "answer": "Um almoco de trabalho, reuniao presencial." }
+  ],
+  "transcript-002": [
+    { "question": "Carol pertence a ACME?",
+      "answer": "Sim, ela e diretora comercial da ACME." },
+    { "question": "A conversa foi por telefone?",
+      "answer": "Foi, uma ligacao." }
+  ],
+  "transcript-003": [
+    { "question": "Maria pertence a ABC?",
+      "answer": "Sim, ela e diretora financeira da ABC." },
+    { "question": "A alcada da Maria vale para todos os pagamentos da ABC ou apenas para esse contrato?",
+      "answer": null },
+    { "question": "O pagamento saiu de voce para a ABC?",
+      "answer": "Sim, 300 mil reais." }
+  ],
+  "transcript-004": [
+    { "question": "Foi uma reuniao presencial?",
+      "answer": "Sim, reuniao de acompanhamento." }
+  ],
+  "transcript-005": [
+    { "question": "O dinheiro entrou vindo da ACME?",
+      "answer": "Sim, 120 mil reais da primeira parcela." }
+  ],
+  "transcript-006": [
+    { "question": "Foi outra reuniao com o Bob?",
+      "answer": "Sim, mesma serie semanal de reunioes." }
+  ],
+  "transcript-007": [
+    { "question": "Sam trabalha em alguma empresa?",
+      "answer": "Nao, ele e autonomo." },
+    { "question": "O pagamento saiu de voce para o Sam?",
+      "answer": "Sim, 2500 reais." }
+  ],
+  "transcript-008": [
+    { "question": "Sam pertence a alguma organizacao?",
+      "answer": "Nao, continua autonomo." }
+  ],
+  "transcript-009": [
+    { "question": "A alcada do Bob terminou mesmo em junho?",
+      "answer": "Terminou, em 30 de junho de 2026." }
+  ]
+}

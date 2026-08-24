@@ -1,0 +1,122 @@
+{
+  "_comment": [
+    "What the synthetic dataset must produce once every transcript has been",
+    "ingested, analyzed, answered, consolidated and reconciled.",
+    "",
+    "Exact values are given only where they are exact: amounts, types, group",
+    "membership, flow direction. Distances and radii are asserted as orderings",
+    "instead, because their absolute values depend on projection parameters that",
+    "are meant to be tuned. An ordering that survives tuning is the real",
+    "invariant."
+  ],
+
+  "asOf": "2026-08-24T18:00:00Z",
+  "ego": "urn:hcin:person:me",
+
+  "nodes": [
+    {
+      "id": "urn:hcin:person:bob",
+      "label": "Bob",
+      "type": "PERSON",
+      "organizationIds": ["urn:hcin:org:acme-company"],
+      "financialMagnitude": "0",
+      "grossInflow": "0",
+      "grossOutflow": "0",
+      "financialAuthority": "NONE",
+      "interactions": 3,
+      "_why": "weekly meetings, no money between us, authority ended in June"
+    },
+    {
+      "id": "urn:hcin:person:carol",
+      "label": "Carol",
+      "type": "PERSON",
+      "organizationIds": ["urn:hcin:org:acme-company"],
+      "financialMagnitude": "0",
+      "financialAuthority": "NONE",
+      "interactions": 1
+    },
+    {
+      "id": "urn:hcin:person:maria",
+      "label": "Maria",
+      "type": "PERSON",
+      "organizationIds": ["urn:hcin:org:abc-company"],
+      "financialMagnitude": "0",
+      "financialAuthority": "EXPENDITURE",
+      "interactions": 0,
+      "_why": "holds decision power over money that never passes through her"
+    },
+    {
+      "id": "urn:hcin:person:sam",
+      "label": "Sam",
+      "type": "PERSON",
+      "organizationIds": [],
+      "financialMagnitude": "2500.00",
+      "grossInflow": "0",
+      "grossOutflow": "2500.00",
+      "financialAuthority": "NONE",
+      "interactions": 1,
+      "_why": "the independent person: belongs to nothing, and is paid directly"
+    },
+    {
+      "id": "urn:hcin:org:acme-company",
+      "label": "ACME Company",
+      "type": "ORGANIZATION",
+      "financialMagnitude": "120000.00",
+      "grossInflow": "120000.00",
+      "grossOutflow": "0",
+      "financialAuthority": "NONE"
+    },
+    {
+      "id": "urn:hcin:org:abc-company",
+      "label": "ABC Company",
+      "type": "ORGANIZATION",
+      "financialMagnitude": "300000.00",
+      "grossInflow": "0",
+      "grossOutflow": "300000.00",
+      "financialAuthority": "NONE"
+    }
+  ],
+
+  "edges": [
+    { "target": "urn:hcin:person:bob",       "directFinancialFlow": false, "flowDirection": "NONE",    "strokeStyle": "DASHED" },
+    { "target": "urn:hcin:person:carol",     "directFinancialFlow": false, "flowDirection": "NONE",    "strokeStyle": "DASHED" },
+    { "target": "urn:hcin:person:maria",     "directFinancialFlow": false, "flowDirection": "NONE",    "strokeStyle": "DASHED" },
+    { "target": "urn:hcin:person:sam",       "directFinancialFlow": true,  "flowDirection": "OUTFLOW", "strokeStyle": "SOLID" },
+    { "target": "urn:hcin:org:acme-company", "directFinancialFlow": true,  "flowDirection": "INFLOW",  "strokeStyle": "SOLID" },
+    { "target": "urn:hcin:org:abc-company",  "directFinancialFlow": true,  "flowDirection": "OUTFLOW", "strokeStyle": "SOLID" }
+  ],
+
+  "groups": [
+    { "id": "urn:hcin:org:acme-company", "memberNodeIds": ["urn:hcin:person:bob", "urn:hcin:person:carol"] },
+    { "id": "urn:hcin:org:abc-company",  "memberNodeIds": ["urn:hcin:person:maria"] }
+  ],
+
+  "closerThan": [
+    ["urn:hcin:person:bob", "urn:hcin:person:carol"],
+    ["urn:hcin:person:carol", "urn:hcin:person:sam"]
+  ],
+
+  "largerThan": [
+    ["urn:hcin:org:abc-company", "urn:hcin:org:acme-company"],
+    ["urn:hcin:org:acme-company", "urn:hcin:person:sam"],
+    ["urn:hcin:person:sam", "urn:hcin:person:bob"]
+  ],
+
+  "historical": {
+    "_comment": "Six months earlier: Bob still held the revenue authority that ended in June, Maria had not been given hers yet, and nobody had interacted or paid anybody.",
+    "asOf": "2026-03-01T00:00:00Z",
+    "authority": {
+      "urn:hcin:person:bob": "REVENUE",
+      "urn:hcin:person:maria": "NONE"
+    },
+    "absentNodes": ["urn:hcin:person:sam", "urn:hcin:org:acme-company", "urn:hcin:org:abc-company"],
+    "presentNodes": ["urn:hcin:person:bob", "urn:hcin:person:carol", "urn:hcin:person:maria"],
+    "zeroProximity": true
+  },
+
+  "clarification": {
+    "_comment": "The question the user left unanswered is the one the shapes independently flag: an authority whose scope nobody has established.",
+    "unansweredQuestion": "A alcada da Maria vale para todos os pagamentos da ABC ou apenas para esse contrato?",
+    "expectedShaclMessage": "the scope of this authority is unknown"
+  }
+}

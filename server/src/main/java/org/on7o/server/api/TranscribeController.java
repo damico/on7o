@@ -63,6 +63,12 @@ public class TranscribeController {
         }
 
         Thought thought = opt.get();
+        if (!thought.isAudio()) {
+            sendEvent(emitter, "error", "thought has no audio to transcribe: " + id);
+            emitter.complete();
+            return emitter;
+        }
+
         Path audio = store.audioPath(thought);
 
         Thread.ofVirtual().start(() -> {

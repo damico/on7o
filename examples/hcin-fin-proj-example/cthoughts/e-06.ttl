@@ -1,0 +1,21 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix ego:   <urn:hcin:person:> .
+@prefix t: <urn:on7o:e06:> .
+
+t:dan a hcin:Person ; hcin:label "Dan" .
+t:acme a hcin:Organization ; hcin:label "ACME Company" .
+
+t:membership-dan a hcin:Membership ;
+    hcin:member          t:dan ;
+    hcin:memberOf        t:acme ;
+    hcin:role            "Architect" ;
+    hcin:validFrom       "2024-01-01T00:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:interaction-dan a hcin:Interaction ;
+    hcin:participant     ego:me , t:dan ;
+    hcin:interactionType "meeting" ;
+    hcin:occurredAt      "2026-08-13T15:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .

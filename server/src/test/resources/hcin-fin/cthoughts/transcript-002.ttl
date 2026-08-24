@@ -1,0 +1,22 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix ego:   <urn:hcin:person:> .
+@prefix t: <urn:on7o:t002:> .
+
+t:carol a hcin:Person       ; hcin:label "Carol" .
+t:acme  a hcin:Organization ; hcin:label "ACME Company" .
+
+t:membership a hcin:Membership ;
+    hcin:member          t:carol ;
+    hcin:memberOf        t:acme ;
+    hcin:role            "Commercial director" ;
+    hcin:validFrom       "2023-06-01T00:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:call a hcin:Interaction ;
+    hcin:participant     ego:me , t:carol ;
+    hcin:interactionType "phoneCall" ;
+    hcin:context         t:acme ;
+    hcin:occurredAt      "2026-08-21T13:20:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .

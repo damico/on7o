@@ -1,0 +1,189 @@
+@prefix hcin: <http://on7o.io/hcin#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+<http://on7o.io/hcin> a owl:Ontology ;
+    rdfs:label   "HCIN core" ;
+    rdfs:comment "The Human-Centric Intelligence Network core model: entities, qualified relationships, time, context, and how the system knows what it claims to know. Deliberately free of any one projection's concerns." .
+
+# -----------------------------------------------------------------------------
+# Entities
+# -----------------------------------------------------------------------------
+
+hcin:Entity a owl:Class ;
+    rdfs:label   "Entity" ;
+    rdfs:comment "Anything the network can talk about." .
+
+hcin:Person a owl:Class ;
+    rdfs:subClassOf hcin:Entity ;
+    rdfs:label   "Person" ;
+    rdfs:comment "A human being. A person may belong to no organization at all." .
+
+hcin:Organization a owl:Class ;
+    rdfs:subClassOf hcin:Entity ;
+    rdfs:label   "Organization" ;
+    rdfs:comment "A company, institution, or informal group that gives relationships a context." .
+
+hcin:Role a owl:Class ;
+    rdfs:label   "Role" ;
+    rdfs:comment "What someone does inside an organization." .
+
+hcin:Membership a owl:Class ;
+    rdfs:label   "Membership" ;
+    rdfs:comment "A person belonging to an organization, over a period, in a role. Reified because it starts, ends, and may be believed with less than certainty." .
+
+hcin:Context a owl:Class ;
+    rdfs:label   "Context" ;
+    rdfs:comment "The setting a relationship or event belongs to: an organization, a contract, a negotiation, a project." .
+
+hcin:Goal a owl:Class ;
+    rdfs:label   "Goal" ;
+    rdfs:comment "What the ego is trying to achieve, under which a relationship becomes more or less relevant." .
+
+# -----------------------------------------------------------------------------
+# Qualified relationships and interactions
+# -----------------------------------------------------------------------------
+
+hcin:Relationship a owl:Class ;
+    rdfs:label   "Relationship" ;
+    rdfs:comment "A directed, qualified relation between two entities. An object rather than an edge, because it has a layer, a context, a validity, a provenance and a strength, and because A trusting B says nothing about B trusting A." .
+
+hcin:Interaction a owl:Class ;
+    rdfs:label   "Interaction" ;
+    rdfs:comment "One event involving two or more participants at a point in time. Interactions are the evidence from which relational proximity is computed." .
+
+hcin:Layer a owl:Class ;
+    rdfs:label   "Relational layer" ;
+    rdfs:comment "The dimension a relationship is being read in: financial, professional, family, intellectual, emotional, governance." .
+
+hcin:Financial     a hcin:Layer ; rdfs:label "Financial layer" .
+hcin:Professional  a hcin:Layer ; rdfs:label "Professional layer" .
+hcin:Organizational a hcin:Layer ; rdfs:label "Organizational layer" .
+
+hcin:source a owl:ObjectProperty ;
+    rdfs:domain hcin:Relationship ; rdfs:range hcin:Entity ;
+    rdfs:label  "source" ; rdfs:comment "The entity the relationship runs from." .
+
+hcin:target a owl:ObjectProperty ;
+    rdfs:domain hcin:Relationship ; rdfs:range hcin:Entity ;
+    rdfs:label  "target" ; rdfs:comment "The entity the relationship runs to." .
+
+hcin:layer a owl:ObjectProperty ;
+    rdfs:range hcin:Layer ; rdfs:label "layer" .
+
+hcin:relationType a owl:ObjectProperty ;
+    rdfs:domain hcin:Relationship ;
+    rdfs:label  "relation type" ;
+    rdfs:comment "What the relationship asserts, as the property it reifies. Kept as a resource rather than a name so that the original vocabulary term survives the merge." .
+
+hcin:context a owl:ObjectProperty ;
+    rdfs:label "context" ; rdfs:comment "The setting this fact belongs to." .
+
+hcin:member a owl:ObjectProperty ;
+    rdfs:domain hcin:Membership ; rdfs:range hcin:Person ; rdfs:label "member" .
+
+hcin:memberOf a owl:ObjectProperty ;
+    rdfs:domain hcin:Membership ; rdfs:range hcin:Organization ; rdfs:label "member of" .
+
+hcin:role a owl:ObjectProperty ;
+    rdfs:domain hcin:Membership ; rdfs:range hcin:Role ; rdfs:label "role" .
+
+hcin:participant a owl:ObjectProperty ;
+    rdfs:domain hcin:Interaction ; rdfs:range hcin:Entity ;
+    rdfs:label  "participant" ; rdfs:comment "Someone present in the interaction, the ego included." .
+
+hcin:interactionType a owl:DatatypeProperty ;
+    rdfs:domain hcin:Interaction ; rdfs:range xsd:string ;
+    rdfs:label  "interaction type" ;
+    rdfs:comment "A token such as meeting, phoneCall, message, mention. What each type is worth is an analytic parameter of a projection, not a fact about the world, and is configured outside this vocabulary." .
+
+hcin:occurredAt a owl:DatatypeProperty ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "occurred at" ; rdfs:comment "When the event happened in the world." .
+
+hcin:label a owl:DatatypeProperty ;
+    rdfs:range xsd:string ; rdfs:label "label" ;
+    rdfs:comment "The name this entity is known by, as the ego says it." .
+
+# -----------------------------------------------------------------------------
+# Time: when it was true, and when we found out
+# -----------------------------------------------------------------------------
+
+hcin:TemporalExtent a owl:Class ;
+    rdfs:label   "Temporal extent" ;
+    rdfs:comment "The stretch of time over which something holds." .
+
+hcin:validFrom a owl:DatatypeProperty ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label  "valid from" ; rdfs:comment "Start of the period in which the fact is true in the world." .
+
+hcin:validTo a owl:DatatypeProperty ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label  "valid to" ; rdfs:comment "End of that period. Absent means still holding." .
+
+hcin:observedAt a owl:DatatypeProperty ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label  "observed at" ; rdfs:comment "When the evidence was observed. A relationship that ended in 2024 may only be observed in 2026, and the two dates must not be confused." .
+
+hcin:recordedAt a owl:DatatypeProperty ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label  "recorded at" ; rdfs:comment "When the fact entered the HCIN." .
+
+hcin:lastConfirmedAt a owl:DatatypeProperty ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label  "last confirmed at" ; rdfs:comment "The last time a human corroborated the fact." .
+
+# -----------------------------------------------------------------------------
+# How the system knows what it claims
+# -----------------------------------------------------------------------------
+
+hcin:EpistemicStatus a owl:Class ;
+    rdfs:label   "Epistemic status" ;
+    rdfs:comment "How a statement came to be believed." .
+
+hcin:Asserted a hcin:EpistemicStatus ;
+    rdfs:label "Asserted" ; rdfs:comment "Stated or confirmed by a human." .
+
+hcin:Inferred a hcin:EpistemicStatus ;
+    rdfs:label "Inferred" ; rdfs:comment "Derived by the system from other statements." .
+
+hcin:Hypothesized a hcin:EpistemicStatus ;
+    rdfs:label "Hypothesized" ; rdfs:comment "Proposed by the system and not confirmed by anyone." .
+
+hcin:Evidence a owl:Class ;
+    rdfs:label   "Evidence" ;
+    rdfs:comment "Something that supports a statement: a thought, a transcription, an answer." .
+
+hcin:Observation a owl:Class ;
+    rdfs:label   "Observation" ;
+    rdfs:comment "The act of learning something: what was learned, from which evidence, when, and how confidently." .
+
+hcin:Perspective a owl:Class ;
+    rdfs:label   "Perspective" ;
+    rdfs:comment "Whose view a statement is made from. The HCIN is not a view from nowhere." .
+
+hcin:knowledgeStatus a owl:ObjectProperty ;
+    rdfs:range hcin:EpistemicStatus ; rdfs:label "knowledge status" .
+
+hcin:confidence a owl:DatatypeProperty ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "confidence" ; rdfs:comment "How strongly the statement is believed, from 0.0 to 1.0." .
+
+hcin:wasDerivedFrom a owl:ObjectProperty ;
+    rdfs:label "was derived from" ; rdfs:comment "The evidence a statement came from." .
+
+hcin:evidence a owl:ObjectProperty ;
+    rdfs:range hcin:Evidence ; rdfs:label "evidence" .
+
+hcin:perspective a owl:ObjectProperty ;
+    rdfs:range hcin:Perspective ; rdfs:label "perspective" .
+
+hcin:about a owl:ObjectProperty ;
+    rdfs:domain hcin:Observation ;
+    rdfs:label "about" ; rdfs:comment "The entity or relationship this observation concerns." .
+
+hcin:thoughtId a owl:DatatypeProperty ;
+    rdfs:range xsd:string ;
+    rdfs:label "thought id" ; rdfs:comment "The on7o thought an observation came from." .

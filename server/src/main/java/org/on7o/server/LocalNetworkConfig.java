@@ -39,8 +39,11 @@ public class LocalNetworkConfig implements WebMvcConfigurer {
     @Bean
     ApplicationListener<ApplicationReadyEvent> ingestUrlBanner() {
         return event -> {
-            int port = ((WebServerApplicationContext) event.getApplicationContext())
-                    .getWebServer().getPort();
+            // Tests run against a mock servlet environment with no web server at all.
+            if (!(event.getApplicationContext() instanceof WebServerApplicationContext context)) {
+                return;
+            }
+            int port = context.getWebServer().getPort();
             log.warn("on7o server is UNAUTHENTICATED and intended for LAN use only");
             for (String address : localAddresses()) {
                 log.info("ingest endpoint: http://{}:{}/api/thoughts/audio", address, port);

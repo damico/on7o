@@ -6,6 +6,13 @@ spring:
   mvc:
     async:
       request-timeout: 0
+  jackson:
+    # Keep the offset a caller stated instead of rewriting it to the server
+    # timezone: when a thought was captured is part of what was said.
+    deserialization:
+      adjust-dates-to-context-time-zone: false
+    serialization:
+      write-dates-with-context-time-zone: false
 
 server:
   # LAN-only during the capture milestone: no auth, no TLS.
@@ -29,6 +36,37 @@ on7o:
     temperature: 0.0
     # Whisper on CPU runs several times slower than real time.
     timeout: 10m
+
+  hcin:
+    # The literal "mem" keeps the dataset in memory, for tests and throwaway runs.
+    location: data/hcin
+    ego: urn:hcin:person:me
+    load-schema: true
+
+  # Analytic and visual parameters of the financial projection. None of this is
+  # ontology: changing a weight changes how the network is read, never what it
+  # claims is true.
+  projection:
+    temporal-proximity:
+      period-hours: 24
+      decay-factor: 0.9
+      epsilon: 0.01
+      min-distance: 80
+      max-distance: 600
+    financial:
+      base-currency: BRL
+      min-radius: 8
+      max-radius: 40
+      alpha: 2.0
+    default-weight: 0.1
+    interaction-weights:
+      mention: 0.1
+      message: 0.3
+      phoneCall: 0.6
+      meeting: 1.0
+      strategicMeeting: 1.5
+      financialNegotiation: 1.5
+      financialTransaction: 1.2
 
 openai:
   api-key: ${OPENAI_API_KEY:}

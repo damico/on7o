@@ -1,0 +1,34 @@
+@prefix hcin:  <http://on7o.io/hcin#> .
+@prefix hcinf: <http://on7o.io/hcin/financial#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix ego:   <urn:hcin:person:> .
+@prefix t: <urn:on7o:t003:> .
+
+t:maria a hcin:Person       ; hcin:label "Maria" .
+t:abc   a hcin:Organization ; hcin:label "ABC Company" .
+
+t:membership a hcin:Membership ;
+    hcin:member          t:maria ;
+    hcin:memberOf        t:abc ;
+    hcin:role            "Financial director" ;
+    hcin:validFrom       "2022-03-01T00:00:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+t:payment a hcinf:FinancialFlow ;
+    hcinf:flowSource     ego:me ;
+    hcinf:flowTarget     t:abc ;
+    hcinf:direction      hcinf:Outflow ;
+    hcinf:amount         "300000.00"^^xsd:decimal ;
+    hcinf:currency       "BRL" ;
+    hcin:occurredAt      "2026-08-18T19:45:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
+
+# The user was asked whether this authority covers every payment at ABC or only
+# this contract, and did not answer. It is therefore stated without a scope, and
+# reconciliation will record it as a hypothesis rather than as standing power.
+t:approval a hcinf:FinancialAuthority ;
+    hcinf:holder         t:maria ;
+    hcinf:organization   t:abc ;
+    hcinf:authorityType  hcinf:ExpenditureAuthority ;
+    hcin:validFrom       "2026-08-18T19:45:00.000Z"^^xsd:dateTime ;
+    hcin:knowledgeStatus hcin:Asserted .
