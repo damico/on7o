@@ -37,6 +37,13 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Turtle parsing for the ontology diagram views. -->
+        <dependency>
+            <groupId>org.apache.jena</groupId>
+            <artifactId>jena-arq</artifactId>
+            <version>5.2.0</version>
+        </dependency>
     </dependencies>
 
     <build>

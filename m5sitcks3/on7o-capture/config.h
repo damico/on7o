@@ -23,7 +23,7 @@
 // The LAN address of the machine running on7o-server. Its startup log prints
 // the exact URL ("ingest endpoint: http://...").
 // ---------------------------------------------------------------------------
-#define ON7O_HOST      "10.109.118.30"
+#define ON7O_HOST      "10.109.118.42"
 #define ON7O_PORT      8080
 #define ON7O_PATH      "/api/thoughts/audio"
 #define ON7O_DEVICE_ID "sticks3-01"

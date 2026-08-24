@@ -25,6 +25,14 @@ import java.util.regex.Pattern;
  *   <li>Stage 2 - {@link #questionRaw}: rThought to clarification questions (qThought)</li>
  *   <li>Stage 3 - {@link #consolidate}: rThought + answers to final ontology (cThought)</li>
  * </ul>
+ *
+ * <p>A fourth, independent branch derives a standalone thought from a single entity
+ * found in a cThought, rather than from a raw transcription:
+ * <ul>
+ *   <li>{@link #scanEntities}: cThought to entities needing their own definition</li>
+ *   <li>{@link #questionEntity}: one entity to clarification questions (eThought)</li>
+ *   <li>{@link #consolidateEntity}: eThought + answers to a standalone ontology (cThought)</li>
+ * </ul>
  */
 @Service
 public class ThoughtInterpreter {
@@ -90,9 +98,87 @@ public class ThoughtInterpreter {
         return response;
     }
 
+    /**
+     * Scans a consolidated ontology for entities that are referenced but not
+     * themselves defined, as candidates for their own derived eThought.
+     *
+     * @param cThoughtTurtle OWL Turtle produced by stage 3
+     * @return candidate entities, most important first
+     */
+    public List<EntityCandidate> scanEntities(String cThoughtTurtle) {
+        log.info("entity scan: reviewing cThought ({} chars)", cThoughtTurtle.length());
+        String response = openAi.complete(Constants.PROMPT_ENTITY_SCAN,
+                "cThought (OWL Turtle):\n" + cThoughtTurtle);
+        return parseEntityCandidates(response);
+    }
+
+    /**
+     * Generates clarification questions for a single entity, independent of any
+     * rThought.
+     *
+     * @param entityLabel the entity's short label (e.g. "Psychiatrist")
+     * @param context     supporting triples or tooltip text describing how the
+     *                    entity was used in its source thought
+     * @return parsed questions and their Turtle representation (eThought)
+     */
+    public QThoughtResult questionEntity(String entityLabel, String context) {
+        log.info("eThought: generating questions for entity '{}'", entityLabel);
+        String response = openAi.complete(Constants.PROMPT_ETHOUGHT,
+                "Entity: " + entityLabel + "\nContext:\n" + context);
+        return parseQThought(response);
+    }
+
+    /**
+     * Consolidates answers about a single entity into a standalone ontology,
+     * independent of any parent rThought.
+     *
+     * @param eThought  OWL Turtle from the entity's eThought stage
+     * @param questions plain-language questions shown to the user
+     * @param answers   the user's plain-language answers, parallel to {@code questions}
+     * @return OWL 2 Turtle string (cThought)
+     */
+    public String consolidateEntity(String eThought, List<String> questions, List<String> answers) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("eThought (OWL Turtle):\n").append(eThought).append("\n\n");
+        sb.append("User answers:\n");
+        appendAnswers(sb, questions, answers);
+        String userContent = sb.toString();
+        log.info("cThought (derived): starting consolidation ({} chars input)", userContent.length());
+        String response = openAi.complete(Constants.PROMPT_ECTHOUGHT, userContent);
+        log.info("cThought (derived): received {} chars", response.length());
+        return response;
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private List<EntityCandidate> parseEntityCandidates(String response) {
+        List<EntityCandidate> candidates = new ArrayList<>();
+        String jsonBlock = extractBlock(response, JSON_BLOCK);
+        if (jsonBlock == null) {
+            log.warn("entity scan: no ```json``` block found, no candidates parsed");
+            return candidates;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(jsonBlock);
+            JsonNode arr = root.get("entities");
+            if (arr != null && arr.isArray()) {
+                for (JsonNode item : arr) {
+                    if (candidates.size() >= Constants.MAX_AUTO_DERIVED_ENTITIES) {
+                        break;
+                    }
+                    String label = item.path("label").asText(null);
+                    if (label != null && !label.isBlank()) {
+                        candidates.add(new EntityCandidate(label, item.path("reason").asText("")));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("entity scan: could not parse JSON block: {}", e.getMessage());
+        }
+        return candidates;
+    }
 
     private QThoughtResult parseQThought(String response) {
         String turtle = extractBlock(response, TURTLE_BLOCK);
@@ -109,6 +195,9 @@ public class ThoughtInterpreter {
                 JsonNode arr = root.get("questions");
                 if (arr != null && arr.isArray()) {
                     for (JsonNode item : arr) {
+                        if (questions.size() >= Constants.QTHOUGHT_MAX_QUESTIONS) {
+                            break;
+                        }
                         questions.add(item.asText());
                     }
                 }
@@ -133,12 +222,16 @@ public class ThoughtInterpreter {
         sb.append("rThought (OWL Turtle):\n").append(rThought).append("\n\n");
         sb.append("qThought (OWL Turtle):\n").append(qThought).append("\n\n");
         sb.append("User answers:\n");
+        appendAnswers(sb, questions, answers);
+        return sb.toString();
+    }
+
+    private void appendAnswers(StringBuilder sb, List<String> questions, List<String> answers) {
         for (int i = 0; i < questions.size(); i++) {
             String q = questions.get(i);
             String a = (i < answers.size()) ? answers.get(i) : "(no answer)";
             sb.append(i + 1).append(". Q: ").append(q).append("\n");
             sb.append("   A: ").append(a).append("\n");
         }
-        return sb.toString();
     }
 }

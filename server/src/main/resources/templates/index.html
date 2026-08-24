@@ -23,13 +23,15 @@
         <div class="thought-item" th:each="t : ${thoughts}" th:id="'thought-' + ${t.id}">
             <div class="thought-meta">
                 <span class="thought-time" th:text="${t.capturedAt}"></span>
-                <span class="thought-duration" th:text="${t.duration}"></span>
-                <span class="thought-device" th:text="${t.deviceId}"></span>
+                <span th:unless="${t.derived}" class="thought-duration" th:text="${t.duration}"></span>
+                <span th:unless="${t.derived}" class="thought-device" th:text="${t.deviceId}"></span>
+                <a th:if="${t.derived}" class="thought-device" th:href="'/#thought-' + ${t.parentId}"
+                   th:text="'from ' + ${t.parentId}"></a>
 
                 <!-- STT button: show when pending -->
                 <th:block th:if="${t.pending}">
                     <button class="btn-stt"
-                            th:attr="onclick='startStt(' + ${#strings.escapeJava(t.id)} + ')'"
+                            th:attr="onclick='startStt(\'' + ${#strings.escapeJava(t.id)} + '\')'"
                             th:id="'btn-stt-' + ${t.id}">
                         STT
                     </button>
@@ -37,7 +39,18 @@
                     <span class="stt-error"  th:id="'stt-error-'  + ${t.id}" style="display:none"></span>
                 </th:block>
 
-                <!-- Understand button: transcribed but not yet interpreted -->
+                <!-- rThought button: transcribed, stage 1 not yet run -->
+                <th:block th:if="${t.readyForRThought}">
+                    <button class="btn-stt"
+                            th:attr="onclick='startRthought(\'' + ${#strings.escapeJava(t.id)} + '\')'"
+                            th:id="'btn-rthought-' + ${t.id}">
+                        rThought
+                    </button>
+                    <span class="stt-status" th:id="'rthought-status-' + ${t.id}" style="display:none">analyzing...</span>
+                    <span class="stt-error"  th:id="'rthought-error-'  + ${t.id}" style="display:none"></span>
+                </th:block>
+
+                <!-- Understand button: rThought exists, questions not yet generated -->
                 <th:block th:if="${t.readyToUnderstand}">
                     <button class="btn-understand"
                             th:attr="onclick='startUnderstand(\'' + ${t.id} + '\')'">
@@ -55,20 +68,24 @@
                     </a>
                 </th:block>
 
-                <!-- Consolidated badge -->
+                <!-- All three stages complete: open each stage's diagram -->
                 <th:block th:if="${t.hasCThought}">
-                    <a class="btn-questions"
-                       th:href="'/thoughts/' + ${t.id} + '/questions'">
-                        Ontology ready
-                    </a>
+                    <a th:unless="${t.derived}" class="btn-questions" th:href="'/thoughts/' + ${t.id} + '/diagram/rthought'">rThought</a>
+                    <a class="btn-questions" th:href="'/thoughts/' + ${t.id} + '/diagram/qthought'">qThought</a>
+                    <a class="btn-questions" th:href="'/thoughts/' + ${t.id} + '/diagram/cthought'">cThought</a>
                 </th:block>
             </div>
 
             <p class="thought-text"
                th:id="'text-' + ${t.id}"
                th:classappend="${t.pending} ? 'empty'"
-               th:text="${t.pending} ? 'No transcription.' : ${t.text}">
+               th:text="${t.derived} ? ('Entity: ' + ${t.sourceEntity}) : (${t.pending} ? 'No transcription.' : ${t.text})">
             </p>
+
+            <pre class="rthought-output"
+                 th:if="${t.hasRThought}"
+                 th:id="'rthought-' + ${t.id}"
+                 th:text="${t.rawThought}"></pre>
         </div>
     </div>
 
@@ -102,6 +119,52 @@ function startStt(id) {
     source.addEventListener('error', function(e) {
         status.style.display = 'none';
         error.textContent    = e.data || 'transcription failed';
+        error.style.display  = 'inline';
+        btn.disabled = false;
+        btn.style.display = 'inline';
+        source.close();
+    });
+
+    source.onerror = function() {
+        status.style.display = 'none';
+        error.textContent    = 'connection lost';
+        error.style.display  = 'inline';
+        btn.disabled = false;
+        btn.style.display = 'inline';
+        source.close();
+    };
+}
+
+function startRthought(id) {
+    var btn    = document.getElementById('btn-rthought-'    + id);
+    var status = document.getElementById('rthought-status-' + id);
+    var error  = document.getElementById('rthought-error-'  + id);
+
+    btn.disabled = true;
+    btn.style.display = 'none';
+    status.style.display = 'inline';
+    error.style.display  = 'none';
+
+    var source = new EventSource('/api/thoughts/' + encodeURIComponent(id) + '/rethought/stream');
+
+    source.addEventListener('result', function(e) {
+        status.style.display = 'none';
+
+        var pre = document.getElementById('rthought-' + id);
+        if (!pre) {
+            pre = document.createElement('pre');
+            pre.className = 'rthought-output';
+            pre.id = 'rthought-' + id;
+            document.getElementById('text-' + id).insertAdjacentElement('afterend', pre);
+        }
+        pre.textContent = e.data;
+
+        source.close();
+    });
+
+    source.addEventListener('error', function(e) {
+        status.style.display = 'none';
+        error.textContent    = e.data || 'rThought failed';
         error.style.display  = 'inline';
         btn.disabled = false;
         btn.style.display = 'inline';

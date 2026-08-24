@@ -19,18 +19,18 @@ public final class ThoughtView {
 
     private final Thought thought;
     private final Optional<Transcription> transcription;
-    private final boolean hasRThought;
+    private final Optional<String> rawThought;
     private final boolean hasQuestions;
     private final boolean hasCThought;
 
     public ThoughtView(Thought thought,
                        Optional<Transcription> transcription,
-                       boolean hasRThought,
+                       Optional<String> rawThought,
                        boolean hasQuestions,
                        boolean hasCThought) {
         this.thought = thought;
         this.transcription = transcription;
-        this.hasRThought = hasRThought;
+        this.rawThought = rawThought;
         this.hasQuestions = hasQuestions;
         this.hasCThought = hasCThought;
     }
@@ -58,19 +58,39 @@ public final class ThoughtView {
         return thought.deviceId() != null ? thought.deviceId() : "unknown";
     }
 
+    /** True when this thought was derived from an entity rather than captured from audio. */
+    public boolean isDerived() {
+        return thought.isDerived();
+    }
+
+    /** Label of the entity this thought was derived from, or null when captured from audio. */
+    public String getSourceEntity() {
+        return thought.sourceEntity();
+    }
+
+    /** Id of the thought this one was derived from, or null when captured from audio. */
+    public String getParentId() {
+        return thought.parentId();
+    }
+
     /** Transcription text, or null when no transcription exists. */
     public String getText() {
         return transcription.map(Transcription::text).orElse(null);
     }
 
-    /** True when no transcription is available. */
+    /** True when no transcription is available. Never true for a derived thought. */
     public boolean isPending() {
-        return transcription.isEmpty();
+        return !isDerived() && transcription.isEmpty();
+    }
+
+    /** Raw ontology Turtle (stage 1 output), or null when not yet generated. */
+    public String getRawThought() {
+        return rawThought.orElse(null);
     }
 
     /** True when rThought (stage 1) has been generated. */
     public boolean isHasRThought() {
-        return hasRThought;
+        return rawThought.isPresent();
     }
 
     /** True when qThought questions (stage 2) are ready for the user. */
@@ -84,10 +104,19 @@ public final class ThoughtView {
     }
 
     /**
+     * True when "rThought" should be shown:
+     * transcription exists, rThought (stage 1) does not yet.
+     * Never true for a derived thought, which has no rThought stage at all.
+     */
+    public boolean isReadyForRThought() {
+        return !isDerived() && !isPending() && rawThought.isEmpty();
+    }
+
+    /**
      * True when "Understand" should be shown:
-     * transcription exists, rThought does not yet.
+     * rThought (stage 1) exists, questions (stage 2) do not yet.
      */
     public boolean isReadyToUnderstand() {
-        return !isPending() && !hasRThought;
+        return rawThought.isPresent() && !hasQuestions;
     }
 }

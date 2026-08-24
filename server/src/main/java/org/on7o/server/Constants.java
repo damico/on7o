@@ -58,6 +58,9 @@ public interface Constants {
     // Stage 2 - qThought: clarification questions as ontology
     // -------------------------------------------------------------------------
 
+    /** Maximum number of clarification questions the qThought stage may produce. */
+    int QTHOUGHT_MAX_QUESTIONS = 20;
+
     String PROMPT_QTHOUGHT =
         "You are an ontology engineer reviewing a raw thought ontology (rThought).\n"
         + "Identify everything that CANNOT be resolved from the text alone:\n"
@@ -65,6 +68,13 @@ public interface Constants {
         + "- Ambiguous predicates (what does 'do it' mean here?)\n"
         + "- Missing context: time, place, participants\n"
         + "- Implicit assumptions that need user confirmation\n\n"
+        + "Ask at most " + QTHOUGHT_MAX_QUESTIONS + " questions in total. Prioritize questions "
+        + "that ground the thought:\n"
+        + "1. Why - the motivation or reason behind the thought\n"
+        + "2. What / Who - the subject, object, or participants involved\n"
+        + "3. When - the temporal context, only if the thought relates to time\n"
+        + "Rank questions by this priority and drop the least important ones if the limit "
+        + "of " + QTHOUGHT_MAX_QUESTIONS + " would otherwise be exceeded.\n\n"
         + "Output exactly two sections, in this order:\n\n"
         + "1. A JSON block fenced with ```json and ``` containing:\n"
         + "   {\"questions\": [\"Question 1?\", \"Question 2?\", ...]}\n"
@@ -88,6 +98,67 @@ public interface Constants {
         + "- Resolves all entity references using the answers\n"
         + "- Establishes typed owl:ObjectProperty and owl:DatatypeProperty links\n"
         + "- Assigns owl:Class types to all entities\n"
+        + "- Tags every statement with:\n"
+        + "    on7o:knowledgeStatus one of (on7o:Asserted | on7o:Inferred | on7o:Hypothesized)\n"
+        + "    on7o:confidence a decimal in [0.0, 1.0]\n"
+        + "- Emits on7o:ClarificationQuestion for anything the user left unanswered\n\n"
+        + "Use prefix: @prefix on7o: <http://on7o.io/ontology#> .\n"
+        + "Return ONLY valid Turtle RDF. No prose, no markdown fences.";
+
+    // -------------------------------------------------------------------------
+    // Entity-derived thoughts: independent eThought/cThought pairs seeded by a
+    // single entity that appeared in a cThought, not by a raw transcription.
+    // -------------------------------------------------------------------------
+
+    /** Maximum number of entities automatically derived from one cThought. */
+    int MAX_AUTO_DERIVED_ENTITIES = 5;
+
+    /** Maximum number of clarification questions the eThought stage may produce. */
+    int ETHOUGHT_MAX_QUESTIONS = 5;
+
+    String PROMPT_ENTITY_SCAN =
+        "You are an ontology engineer reviewing a consolidated thought ontology (cThought).\n"
+        + "Find entities that are referenced or used to type/qualify something in this "
+        + "ontology but have no triples of their own explaining what they are (for example, "
+        + "a role or occupation attached to a named individual, such as a profession used to "
+        + "qualify a person's name).\n"
+        + "Only pick entities whose meaning is not self-evident from their label alone.\n\n"
+        + "Each \"label\" MUST name exactly one bare concept, e.g. \"Psychiatrist\". Never "
+        + "combine an individual with its type into one label, e.g. never "
+        + "\"Dr_Rubens : Psychiatrist\" or \"Dr_Rubens (Psychiatrist)\". If a role or type "
+        + "used to qualify a named individual is what needs defining, return only that role "
+        + "or type's own name, not the individual it qualifies.\n\n"
+        + "Output ONLY a JSON block fenced with ```json and ``` containing:\n"
+        + "   {\"entities\": [{\"label\": \"Psychiatrist\", "
+        + "\"reason\": \"used to qualify Dr. Rubens but never itself defined\"}, ...]}\n"
+        + "Return at most " + MAX_AUTO_DERIVED_ENTITIES + " entities, most important first. "
+        + "Return {\"entities\": []} if none qualify.";
+
+    String PROMPT_ETHOUGHT =
+        "You are an ontology engineer. A single entity below was referenced in a thought "
+        + "ontology but was never itself defined. Generate clarification questions that would "
+        + "let a user explain what this entity is, independent of any other thought.\n\n"
+        + "Output exactly two sections, in this order:\n\n"
+        + "1. A JSON block fenced with ```json and ``` containing:\n"
+        + "   {\"questions\": [\"Question 1?\", \"Question 2?\", ...]}\n"
+        + "   Ask at most " + ETHOUGHT_MAX_QUESTIONS + " plain-language questions that ground "
+        + "the entity: why it matters here, what/who it is, and, only if the entity relates "
+        + "to time, when it applies.\n\n"
+        + "2. A Turtle block fenced with ```turtle and ``` containing OWL 2 Turtle where each "
+        + "question is an on7o:ClarificationQuestion instance linked via on7o:concerns to the "
+        + "entity.\n"
+        + "   Use prefix: @prefix on7o: <http://on7o.io/ontology#> .\n\n"
+        + "Do not invent answers. Only ask.";
+
+    String PROMPT_ECTHOUGHT =
+        "You are an ontology engineer. You receive:\n"
+        + "- eThought: clarification questions about a single entity, as OWL Turtle\n"
+        + "- User answers: plain-language answers, one per question\n\n"
+        + "Produce a standalone, consolidated OWL 2 Turtle ontology (cThought) that defines "
+        + "this entity from the answers alone. This ontology is independent of any other "
+        + "thought: do not assume or reference any external context beyond what the answers "
+        + "state.\n"
+        + "- Assign owl:Class or the appropriate owl:ObjectProperty/owl:DatatypeProperty types\n"
         + "- Tags every statement with:\n"
         + "    on7o:knowledgeStatus one of (on7o:Asserted | on7o:Inferred | on7o:Hypothesized)\n"
         + "    on7o:confidence a decimal in [0.0, 1.0]\n"

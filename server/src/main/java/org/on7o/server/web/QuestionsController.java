@@ -40,6 +40,7 @@ public class QuestionsController {
         if (thoughtOpt.isEmpty()) {
             return "redirect:/";
         }
+        Thought thought = thoughtOpt.get();
 
         Optional<List<String>> questionsOpt = store.findQuestions(id);
         if (questionsOpt.isEmpty()) {
@@ -55,6 +56,9 @@ public class QuestionsController {
                 transcriptionOpt.map(Transcription::text).orElse(""));
         model.addAttribute("hasCThought", cThoughtOpt.isPresent());
         model.addAttribute("cThought", cThoughtOpt.orElse(""));
+        model.addAttribute("derived", thought.isDerived());
+        model.addAttribute("sourceEntity", thought.sourceEntity());
+        model.addAttribute("parentId", thought.parentId());
 
         return "questions";
     }

@@ -1,5 +1,7 @@
 package org.on7o.server.api;
 
+import org.on7o.server.ingest.EntityThoughtService;
+import org.on7o.server.ingest.Thought;
 import org.on7o.server.ingest.ThoughtStore;
 import org.on7o.server.llm.InterpretationException;
 import org.on7o.server.llm.QThoughtResult;
@@ -25,11 +27,12 @@ import java.util.Optional;
 /**
  * REST endpoints for the three-stage thought interpretation pipeline.
  *
- * <p>Stages 1 and 2 (rThought + qThought) are triggered together via a single
- * SSE stream opened by the "Understand" button. Stage 3 (cThought) is triggered
- * separately once the user has submitted answers to the clarification questions.
+ * <p>Stage 1 (rThought) is triggered by the "rThought" button via its own SSE
+ * stream. Stage 2 (qThought) is triggered separately by the "Understand" button
+ * once rThought exists. Stage 3 (cThought) is triggered once the user has
+ * submitted answers to the clarification questions.
  *
- * <p>Both long-running operations run in virtual threads and push progress events
+ * <p>All long-running operations run in virtual threads and push progress events
  * to the client via Server-Sent Events so no blocking occurs on Tomcat threads.
  */
 @RestController
@@ -40,26 +43,29 @@ public class UnderstandController {
 
     private final ThoughtStore store;
     private final ThoughtInterpreter interpreter;
+    private final EntityThoughtService entityThoughtService;
 
-    public UnderstandController(ThoughtStore store, ThoughtInterpreter interpreter) {
+    public UnderstandController(ThoughtStore store, ThoughtInterpreter interpreter,
+                                EntityThoughtService entityThoughtService) {
         this.store = store;
         this.interpreter = interpreter;
+        this.entityThoughtService = entityThoughtService;
     }
 
     /**
-     * Opens an SSE stream that runs stages 1 (rThought) and 2 (qThought) in sequence.
+     * Opens an SSE stream that runs stage 1 (rThought) alone: raw ontology
+     * extraction from the transcription, without claims or knowledge status.
      *
      * <p>Events emitted:
      * <ul>
-     *   <li>{@code status} - progress label (analyzing, questioning)</li>
-     *   <li>{@code rthought_done} - empty data, rThought saved to disk</li>
-     *   <li>{@code questions_ready} - URL of the questions page</li>
+     *   <li>{@code status} - "analyzing"</li>
+     *   <li>{@code result} - the raw OWL 2 Turtle string (rThought)</li>
      *   <li>{@code error} - message string on failure</li>
      * </ul>
      */
-    @GetMapping(value = "/api/thoughts/{id}/understand/stream",
+    @GetMapping(value = "/api/thoughts/{id}/rethought/stream",
                 produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter understandStream(@PathVariable String id) {
+    public SseEmitter rethoughtStream(@PathVariable String id) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
         Optional<Transcription> transcriptionOpt = store.findTranscription(id);
@@ -76,8 +82,50 @@ public class UnderstandController {
                 sendEvent(emitter, "status", "analyzing");
                 String rTurtle = interpreter.interpretRaw(transcriptionText);
                 store.saveRawThought(id, rTurtle);
-                sendEvent(emitter, "rthought_done", "");
+                sendEvent(emitter, "result", rTurtle);
+                emitter.complete();
 
+            } catch (InterpretationException e) {
+                log.warn("rThought extraction failed for {}: {}", id, e.getMessage());
+                sendEvent(emitter, "error", e.getMessage());
+                emitter.complete();
+            } catch (IOException e) {
+                log.error("could not persist rThought for {}", id, e);
+                sendEvent(emitter, "error", "failed to save rThought");
+                emitter.complete();
+            }
+        });
+
+        return emitter;
+    }
+
+    /**
+     * Opens an SSE stream that runs stage 2 (qThought) from an already-saved
+     * rThought.
+     *
+     * <p>Events emitted:
+     * <ul>
+     *   <li>{@code status} - "questioning"</li>
+     *   <li>{@code questions_ready} - URL of the questions page</li>
+     *   <li>{@code error} - message string on failure</li>
+     * </ul>
+     */
+    @GetMapping(value = "/api/thoughts/{id}/understand/stream",
+                produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter understandStream(@PathVariable String id) {
+        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
+
+        Optional<String> rThoughtOpt = store.findRawThought(id);
+        if (rThoughtOpt.isEmpty()) {
+            sendEvent(emitter, "error", "no rThought found for thought: " + id);
+            emitter.complete();
+            return emitter;
+        }
+
+        String rTurtle = rThoughtOpt.get();
+
+        Thread.ofVirtual().start(() -> {
+            try {
                 sendEvent(emitter, "status", "questioning");
                 QThoughtResult qt = interpreter.questionRaw(rTurtle);
                 store.saveQuestionsThought(id, qt.turtle(), qt.questions());
@@ -117,8 +165,13 @@ public class UnderstandController {
     }
 
     /**
-     * Opens an SSE stream that runs stage 3 (cThought).
-     * Requires that answers have already been submitted via {@link #submitAnswers}.
+     * Opens an SSE stream that runs stage 3 (cThought). For a thought derived
+     * from an entity (see {@link EntityThoughtService}), this consolidates its
+     * eThought and answers alone, independent of any rThought; for a captured
+     * thought, it also scans the result for entities worth their own derived
+     * thought, in the background, once the stream completes.
+     *
+     * <p>Requires that answers have already been submitted via {@link #submitAnswers}.
      *
      * <p>Events emitted:
      * <ul>
@@ -132,30 +185,40 @@ public class UnderstandController {
     public SseEmitter consolidateStream(@PathVariable String id) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
+        Optional<Thought> thoughtOpt = store.find(id);
+        boolean derived = thoughtOpt.map(Thought::isDerived).orElse(false);
+
         Optional<String> rThought = store.findRawThought(id);
         Optional<String> qThought = store.findQuestionsThought(id);
         Optional<List<String>> questions = store.findQuestions(id);
         Optional<List<String>> answers = store.findAnswers(id);
 
-        if (rThought.isEmpty() || questions.isEmpty() || answers.isEmpty()) {
+        if (qThought.isEmpty() || questions.isEmpty() || answers.isEmpty()
+                || (!derived && rThought.isEmpty())) {
             sendEvent(emitter, "error",
                     "missing rThought, questions, or answers for thought: " + id);
             emitter.complete();
             return emitter;
         }
 
-        String rTurtle = rThought.get();
-        String qTurtle = qThought.orElse("");
+        String rTurtle = rThought.orElse("");
+        String qTurtle = qThought.get();
         List<String> questionList = questions.get();
         List<String> answerList = answers.get();
 
         Thread.ofVirtual().start(() -> {
             try {
                 sendEvent(emitter, "status", "consolidating");
-                String cTurtle = interpreter.consolidate(rTurtle, qTurtle, questionList, answerList);
+                String cTurtle = derived
+                        ? interpreter.consolidateEntity(qTurtle, questionList, answerList)
+                        : interpreter.consolidate(rTurtle, qTurtle, questionList, answerList);
                 store.saveConsolidatedThought(id, cTurtle);
                 sendEvent(emitter, "result", cTurtle);
                 emitter.complete();
+
+                if (!derived) {
+                    Thread.ofVirtual().start(() -> entityThoughtService.autoDeriveFromCThought(id, cTurtle));
+                }
 
             } catch (InterpretationException e) {
                 log.warn("consolidation failed for {}: {}", id, e.getMessage());

@@ -47,7 +47,7 @@ public class IndexController {
                 .map(t -> new ThoughtView(
                         t,
                         store.findTranscription(t.id()),
-                        store.hasFile(t.id(), ThoughtStore.RTHOUGHT_FILE),
+                        store.findRawThought(t.id()),
                         store.hasFile(t.id(), ThoughtStore.QUESTIONS_FILE),
                         store.hasFile(t.id(), ThoughtStore.CTHOUGHT_FILE)
                 ))

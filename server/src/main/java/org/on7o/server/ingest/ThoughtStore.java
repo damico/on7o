@@ -12,6 +12,7 @@ import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -46,6 +47,7 @@ public class ThoughtStore {
     public static final String CTHOUGHT_FILE = "cthought.ttl";
     public static final String QUESTIONS_FILE = "questions.json";
     public static final String ANSWERS_FILE = "answers.json";
+    public static final String ENTITY_CONTEXT_FILE = "entity-context.txt";
     private static final int COPY_BUFFER = 8 * 1024;
 
     private final StorageProperties properties;
@@ -119,7 +121,9 @@ public class ThoughtStore {
                     format.sampleRate(),
                     format.channels(),
                     format.bitsPerSample(),
-                    remoteAddress);
+                    remoteAddress,
+                    null,
+                    null);
 
             objectMapper.writerWithDefaultPrettyPrinter()
                     .writeValue(dir.resolve(META_FILE).toFile(), thought);
@@ -127,6 +131,46 @@ public class ThoughtStore {
         } catch (IOException | RuntimeException e) {
             deleteQuietly(dir);
             throw e;
+        }
+    }
+
+    /**
+     * Creates a new top-level thought derived from a single entity found in
+     * another thought's cThought, rather than from captured audio.
+     *
+     * @param parentId    id of the thought whose cThought the entity came from
+     * @param entityLabel the entity's short label
+     * @param context     supporting triples or tooltip text describing the entity's usage
+     * @return the newly created thought
+     */
+    public Thought createDerivedThought(String parentId, String entityLabel, String context) throws IOException {
+        Instant now = Instant.now();
+        String id = newId(now);
+        Path dir = root.resolve(id);
+        Files.createDirectories(dir);
+
+        Thought thought = new Thought(id, null, now, now, null, 0, 0, 0, 0, 0, 0, null,
+                parentId, entityLabel);
+        objectMapper.writerWithDefaultPrettyPrinter()
+                .writeValue(dir.resolve(META_FILE).toFile(), thought);
+        Files.writeString(dir.resolve(ENTITY_CONTEXT_FILE), context == null ? "" : context);
+        return thought;
+    }
+
+    /** Loads the supporting context saved when a derived thought was created. */
+    public Optional<String> findEntityContext(String id) {
+        return readText(resolveSafely(id).resolve(ENTITY_CONTEXT_FILE));
+    }
+
+    /** All thoughts previously derived from the given parent, in no particular order. */
+    public List<Thought> findDerivedThoughts(String parentId) throws IOException {
+        try (Stream<Path> dirs = Files.list(root)) {
+            return dirs.filter(Files::isDirectory)
+                    .map(p -> p.getFileName().toString())
+                    .map(this::find)
+                    .flatMap(Optional::stream)
+                    .filter(t -> parentId.equals(t.parentId()))
+                    .toList();
         }
     }
 
@@ -237,6 +281,25 @@ public class ThoughtStore {
     /** Loads the consolidated ontology, if it exists. */
     public Optional<String> findConsolidatedThought(String id) {
         return readText(resolveSafely(id).resolve(CTHOUGHT_FILE));
+    }
+
+    /**
+     * Appends a directly user-asserted {@code rdf:type} triple to an existing
+     * cThought, in the same handwritten RDF-star style the LLM stages use.
+     * A manual assertion is not inferred, so it is always tagged Asserted
+     * with full confidence.
+     *
+     * @param id         thought id
+     * @param individual local name of the individual, under the {@code on7o:} prefix
+     * @param type       local name of the class it is additionally typed as
+     */
+    public void appendConsolidatedType(String id, String individual, String type) throws IOException {
+        Path file = resolveSafely(id).resolve(CTHOUGHT_FILE);
+        String addition = "\non7o:" + individual + " rdf:type on7o:" + type + " .\n"
+                + "<< on7o:" + individual + " rdf:type on7o:" + type + " >>\n"
+                + "        on7o:knowledgeStatus on7o:Asserted ;\n"
+                + "        on7o:confidence      1.0 .\n";
+        Files.writeString(file, addition, StandardOpenOption.APPEND);
     }
 
     /** Returns true when the given filename exists inside the thought directory. */

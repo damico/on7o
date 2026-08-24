@@ -25,6 +25,11 @@
          th:text="${transcriptionText}">
     </div>
 
+    <p class="page-subtitle" th:if="${derived}">
+        Derived entity <strong th:text="${sourceEntity}"></strong> from
+        <a th:href="'/#thought-' + ${parentId}" th:text="${parentId}"></a>.
+    </p>
+
     <!-- Already consolidated -->
     <div th:if="${hasCThought}">
         <p class="page-subtitle" style="color:#6a9a6a">Consolidated ontology (cThought)</p>
