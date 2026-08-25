@@ -78,6 +78,32 @@ public class FinancialProjectionController {
     }
 
     /**
+     * What changed between two instants.
+     *
+     * <p>A snapshot says how things stand; only the difference says whether a
+     * relationship is warming or cooling, whether money has shifted direction,
+     * or whether authority has moved. Both ends are explicit, so the question
+     * can be asked about any two dates, not only about the recent past.
+     *
+     * @param from the earlier instant, ISO-8601
+     * @param to   the later instant, ISO-8601; defaults to now
+     */
+    @GetMapping(value = "/api/hcin/financial-projection/delta", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ProjectionDeltaResponse delta(@RequestParam String from,
+                                         @RequestParam(required = false) String to) {
+
+        Instant earlier = instantOf(from);
+        Instant later = instantOf(to);
+
+        if (earlier.isAfter(later)) {
+            throw new IllegalArgumentException("from must not be later than to");
+        }
+
+        return new ProjectionDeltaResponse(earlier, later, repository.ego(),
+                metrics.deltas(earlier, later));
+    }
+
+    /**
      * The parameters the projection was computed with.
      *
      * <p>None of it is ontology: what a meeting is worth is a choice about how to

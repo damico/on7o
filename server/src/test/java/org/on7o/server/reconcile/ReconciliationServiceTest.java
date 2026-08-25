@@ -181,6 +181,20 @@ class ReconciliationServiceTest {
     }
 
     @Test
+    void marksTheLayerOfWhatItCanAndLeavesTheRestUnmarked() throws IOException {
+        store.saveConsolidatedThought(thoughtId, CTHOUGHT);
+        reconciliation.reconcile(thoughtId);
+
+        // Power over money is financial by construction, so it needs no guessing.
+        assertThat(repository.export(HcinGraphs.HYPOTHESES))
+                .contains("hcin:layer").contains("hcin:Financial");
+
+        // A plain claim between two people says nothing about which layer it
+        // lives in, and inventing one would be indistinguishable from knowing.
+        assertThat(repository.export(HcinGraphs.ASSERTED)).doesNotContain("hcin:layer");
+    }
+
+    @Test
     void recordsWhereEverythingCameFrom() throws IOException {
         store.saveConsolidatedThought(thoughtId, CTHOUGHT);
         reconciliation.reconcile(thoughtId);

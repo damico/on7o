@@ -418,6 +418,37 @@ sentence still reads. Two remain on purpose. `CLAUDE.md` has to name the
 character in order to forbid it, and `bootstrap.min.css` is a vendored build
 that should stay byte-identical to upstream.
 
+## Formulas checked against the code
+
+Every formula in the documents was confronted with its implementation. Seven were
+already faithful: the proximity sum, the reciprocal distance, gross against net
+magnitude, the logarithmic radius, the five-component vector, the interaction
+weights, and the numeric defaults of the projection configuration.
+
+Five had drifted, and all five are now closed:
+
+- The logarithmic normalization of visual distance was in the code and not in the
+  document. Section 13 now states it, because it is the single decision that most
+  changes the picture and someone reimplementing from the text would have got a
+  different one.
+- Section 20's relationship vector delta had no implementation. It now has one,
+  behind `GET /api/hcin/financial-projection/delta` (issue 17).
+- The qualified edge of section 18 was five parts of eight. The layer is now set
+  wherever the class settles it, and a missing layer or context is raised by the
+  shapes as a clarification candidate rather than guessed (issue 18). Goals are
+  still unimplemented and deliberately left out: they need a way for the ego to
+  state an objective, which nothing in the pipeline asks for.
+- Section 8 called the authority's reach `context`. The implementation calls it
+  `scope`, which is the better name, and the document now says so and explains
+  why it is distinct from the generic context every statement may carry.
+- The configuration example in section 30.6 listed keys that do not exist and
+  omitted the two that do. It now matches, and says which choices are fixed on
+  purpose rather than configurable.
+
+The canonical relationship example in `HCIN.md` used `hcin:type` and
+`hcin:startedAt`, predating the temporal model the same document argues for a few
+sections later. It now uses `hcin:layer` and `hcin:validFrom`.
+
 ## Open items carried forward
 
 **Synchronous transcription exceeds firmware timeout.** `kResponseTimeoutMs = 8000`

@@ -5,8 +5,10 @@ import org.on7o.server.hcin.HcinRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -72,6 +74,47 @@ public class RelationshipMetricsService {
             metrics.put(subject, metricsFor(subject, scores, visualDistances, magnitudes, authorities));
         }
         return metrics;
+    }
+
+    /**
+     * What changed between two instants, one entry per entity known at either.
+     *
+     * <p>Both instants are given: nothing here reads the clock, so asking what
+     * moved between two dates last year works exactly as asking what moved this
+     * week.
+     *
+     * @param from the earlier instant
+     * @param to   the later instant
+     * @return the difference per entity, largest change in closeness first
+     */
+    public List<RelationshipVectorDelta> deltas(Instant from, Instant to) {
+        Map<String, RelationshipMetrics> before = metrics(from);
+        Map<String, RelationshipMetrics> after = metrics(to);
+
+        Set<String> subjects = new LinkedHashSet<>(after.keySet());
+        subjects.addAll(before.keySet());
+
+        Map<String, String> labels = new LinkedHashMap<>();
+        repository.people().forEach(entity -> labels.putIfAbsent(entity.uri(), entity.label()));
+        repository.organizations().forEach(entity -> labels.putIfAbsent(entity.uri(), entity.label()));
+
+        return subjects.stream()
+                .map(uri -> RelationshipVectorDelta.between(
+                        uri,
+                        labels.get(uri),
+                        vectorOf(before.get(uri)),
+                        vectorOf(after.get(uri))))
+                .sorted(Comparator.comparingDouble(
+                                (RelationshipVectorDelta delta) -> Math.abs(
+                                        delta.interactionProximity() == null
+                                                ? 0 : delta.interactionProximity()))
+                        .reversed())
+                .toList();
+    }
+
+    /** An entity the ego had no relationship with at that instant has an empty vector. */
+    private static RelationshipVector vectorOf(RelationshipMetrics metrics) {
+        return metrics == null ? RelationshipVector.empty() : metrics.vector();
     }
 
     private RelationshipMetrics metricsFor(String uri,

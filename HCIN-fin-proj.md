@@ -258,8 +258,13 @@ FinancialAuthority
     validTo
     spendingLimit
     currency
-    context
+    scope
 ```
+
+`scope` is what the authority actually covers: a contract, a project, a category
+of expense. It is deliberately distinct from the generic `context` every HCIN
+statement may carry. Context says where a fact belongs; scope says how far a
+power reaches, and an absent scope means unknown, never unlimited.
 
 In the current visualization:
 
@@ -468,6 +473,20 @@ D_{min} \le D_{visual} \le D_{max}
 ```
 
 to prevent extreme layouts.
+
+The normalization must not be linear in $D$. Because $D$ is the reciprocal of
+proximity, it is heavily skewed: everyone interacted with in recent weeks lands
+within a hair of $D_{min}$, while a single long-lost contact consumes the rest of
+the band. Normalizing the logarithm instead spreads the population across the
+band and preserves the ordering exactly:
+
+```math
+D_{visual} = D_{min} + \frac{\ln D - \ln D_{low}}{\ln D_{high} - \ln D_{low}}(D_{max} - D_{min})
+```
+
+where $D_{low}$ and $D_{high}$ are the smallest and largest raw distances in the
+population being drawn. Distances are therefore comparable within one projection
+and not between two of them.
 
 ---
 
@@ -1305,6 +1324,7 @@ Example structure:
   "temporalProximity": {
     "periodHours": 24,
     "decayFactor": 0.9,
+    "epsilon": 0.01,
     "minDistance": 80,
     "maxDistance": 600
   },
@@ -1317,15 +1337,27 @@ Example structure:
     "financialNegotiation": 1.5
   },
   "financialMagnitude": {
-    "metric": "gross",
-    "scale": "log",
+    "baseCurrency": "BRL",
     "minRadius": 8,
-    "maxRadius": 40
+    "maxRadius": 40,
+    "alpha": 2.0
   }
 }
 ```
 
 The exact numbers are experimental.
+
+Two things are fixed rather than configurable, because changing them would change
+what the projection means rather than how it reads. Node size always follows
+gross magnitude, never net balance, for the reason given in section 14. And the
+mapping is always logarithmic, for the reason given in section 15. `alpha` tunes
+how steep that mapping is; `epsilon` keeps a person never interacted with from
+dividing by zero.
+
+`baseCurrency` names the currency the headline figures are stated in. Amounts in
+any other currency are reported beside them rather than converted, since the
+system holds no exchange rates and inventing one would be a falsehood with a
+decimal point on it.
 
 ---
 

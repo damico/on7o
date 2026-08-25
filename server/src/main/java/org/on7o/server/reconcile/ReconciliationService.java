@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -240,6 +241,9 @@ public class ReconciliationService {
                         remap(model, statement.getObject(), matches, eventUris));
             }
 
+            layerOf(events, local).ifPresent(layer ->
+                    model.add(subject, HcinVocabulary.LAYER, layer));
+
             annotate(model, subject, tier, null, thoughtId, observedAt, recordedAt);
             observe(provenance, event.getValue(), thoughtId, observedAt, recordedAt);
         }
@@ -270,6 +274,25 @@ public class ReconciliationService {
             case "Inferred" -> KnowledgeTier.INFERRED;
             default -> KnowledgeTier.HYPOTHESIZED;
         };
+    }
+
+    /**
+     * The relational layer a node belongs to, when its own class settles it.
+     *
+     * <p>Money moving and power over money are financial by construction, and
+     * belonging to an organization is organizational. Anything else is left
+     * without a layer: a plausible guess would be indistinguishable from
+     * knowledge, and the shapes raise the absence as something to ask about.
+     */
+    private Optional<Resource> layerOf(Model events, Resource node) {
+        if (events.contains(node, RDF.type, HcinVocabulary.FINANCIAL_FLOW)
+                || events.contains(node, RDF.type, HcinVocabulary.FINANCIAL_AUTHORITY)) {
+            return Optional.of(HcinVocabulary.FINANCIAL);
+        }
+        if (events.contains(node, RDF.type, HcinVocabulary.MEMBERSHIP)) {
+            return Optional.of(HcinVocabulary.ORGANIZATIONAL);
+        }
+        return Optional.empty();
     }
 
     private RDFNode remap(Model model,

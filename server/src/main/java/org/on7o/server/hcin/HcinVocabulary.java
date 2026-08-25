@@ -44,6 +44,10 @@ public final class HcinVocabulary {
     public static final Resource PERSPECTIVE = resource("Perspective");
     public static final Resource TEMPORAL_EXTENT = resource("TemporalExtent");
     public static final Resource ENTITY = resource("Entity");
+    public static final Resource LAYER_CLASS = resource("Layer");
+    public static final Resource FINANCIAL = resource("Financial");
+    public static final Resource PROFESSIONAL = resource("Professional");
+    public static final Resource ORGANIZATIONAL = resource("Organizational");
 
     // -------------------------------------------------------------------------
     // Epistemic status

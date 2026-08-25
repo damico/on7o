@@ -216,6 +216,29 @@ hcin:ProvenanceShape a sh:NodeShape ;
     ] .
 
 # -----------------------------------------------------------------------------
+# The qualified relationship
+# -----------------------------------------------------------------------------
+
+hcin:QualifiedEdgeShape a sh:NodeShape ;
+    sh:targetClass hcin:Relationship, hcin:Membership,
+                   hcinf:FinancialFlow, hcinf:FinancialAuthority ;
+    rdfs:comment "An HCIN edge is meant to say which layer a relationship lives in and which setting it belongs to. Neither can be guessed without inventing knowledge, so an absent one is reported as something to ask the user about rather than filled in." ;
+
+    sh:property [
+        sh:path     hcin:layer ;
+        sh:minCount 1 ;
+        sh:severity sh:Info ;
+        sh:message  "the relational layer of this statement is unknown; ask whether it is financial, professional, organizational or something else" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcin:context ;
+        sh:minCount 1 ;
+        sh:severity sh:Info ;
+        sh:message  "the setting this statement belongs to is unknown; ask which contract, project or organization it happened under" ;
+    ] .
+
+# -----------------------------------------------------------------------------
 # People and organizations
 # -----------------------------------------------------------------------------
 

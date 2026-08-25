@@ -302,6 +302,7 @@ about the world.
 ```http
 GET /api/hcin/financial-projection?asOf=2026-08-24T18:00:00Z
 GET /api/hcin/financial-projection/metrics?asOf=2026-08-24T18:00:00Z
+GET /api/hcin/financial-projection/delta?from=2026-03-01T00:00:00Z&to=2026-08-24T18:00:00Z
 GET /api/hcin/projection-config
 ```
 
@@ -340,6 +341,15 @@ not say where they go: coordinates are layout, and layout is not knowledge.
 `asOf` is read from the clock in the controller and nowhere else. Everything
 below it is given an explicit instant, which is what lets the same code answer
 for last year.
+
+A snapshot says how things stand. Only the difference between two of them says
+whether a relationship is warming or cooling, whether money has shifted
+direction, or whether authority has moved, so `delta` subtracts one relationship
+vector from the other, component by component. An entity known at one instant and
+not the other is compared against an empty vector: the ego had no relationship
+with them then, which is a real starting point rather than missing data. A
+component nobody computes stays null on both sides, since never having looked is
+not the same as having looked and found nothing.
 
 The metrics endpoint returns the working behind those numbers: every interaction
 a proximity was computed from, with its weight, its elapsed periods and its

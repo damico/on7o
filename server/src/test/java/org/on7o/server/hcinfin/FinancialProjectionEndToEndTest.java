@@ -216,6 +216,46 @@ class FinancialProjectionEndToEndTest {
     }
 
     @Test
+    void saysWhatChangedBetweenTwoInstants() throws Exception {
+        ingestAndReconcileEverything();
+
+        JsonNode historical = expected.get("historical");
+        JsonNode delta = read(mvc.perform(get("/api/hcin/financial-projection/delta")
+                        .param("from", historical.get("asOf").asText())
+                        .param("to", expected.get("asOf").asText()))
+                .andExpect(status().isOk()).andReturn());
+
+        Map<String, JsonNode> changes = new HashMap<>();
+        delta.get("changes").forEach(change ->
+                changes.put(change.get("entityUri").asText(), change));
+
+        // Bob was met three times in between, so he came closer.
+        JsonNode bob = changes.get("urn:hcin:person:bob");
+        assertThat(bob.get("interactionProximity").asDouble()).isPositive();
+        assertThat(bob.get("before").get("interactionProximity").asDouble()).isZero();
+
+        // Bob also lost the revenue authority he held in March.
+        assertThat(bob.get("authority").asDouble()).isEqualTo(-1.0);
+
+        // Maria gained hers, and Sam went from unknown to paid.
+        assertThat(changes.get("urn:hcin:person:maria").get("authority").asDouble()).isEqualTo(1.0);
+        assertThat(new BigDecimal(changes.get("urn:hcin:person:sam").get("financialMagnitude").asText()))
+                .isEqualByComparingTo("2500.00");
+
+        // Nothing claims to have measured what nobody computes.
+        assertThat(bob.get("dependency").isNull()).isTrue();
+        assertThat(bob.get("reciprocity").isNull()).isTrue();
+    }
+
+    @Test
+    void refusesADeltaThatRunsBackwards() throws Exception {
+        mvc.perform(get("/api/hcin/financial-projection/delta")
+                        .param("from", expected.get("asOf").asText())
+                        .param("to", expected.get("historical").get("asOf").asText()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void producesTheSameProjectionWhenEverythingIsReconciledTwice() throws Exception {
         Map<String, String> thoughtIds = ingestAndReconcileEverything();
         String before = projectionJsonAt(expected.get("asOf").asText());

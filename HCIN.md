@@ -44,11 +44,11 @@ Suportar:
     hcin:source :Me ;
     hcin:target :Joao ;
 
-    hcin:type hcin:ProfessionalTrust ;
+    hcin:layer hcin:Professional ;
 
     hcin:context :SciCrop ;
 
-    hcin:startedAt "2019-03-01"^^xsd:date ;
+    hcin:validFrom "2019-03-01"^^xsd:date ;
 
     hcin:confidence 0.92 ;
 
