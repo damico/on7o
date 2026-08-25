@@ -18,12 +18,12 @@ Over time, those answers allow on7o to build an increasingly rich semantic model
 
 **on7o is pronounced _onTo_.**
 
-The name is a wordplay on **ontology**, a term derived from the Greek **_ón / óntos_** (ὄν / ὄντος), the present participle of **_einai_** — “to be” or “to exist” — and **_logia_** (λογία), “study” or “discourse.” In that sense, ontology is literally concerned with **that which is**, **being**, or **the study of what exists**.
+The name is a wordplay on **ontology**, a term derived from the Greek **_ón / óntos_** (ὄν / ὄντος), the present participle of **_einai_** (“to be” or “to exist”) and **_logia_** (λογία), “study” or “discourse.” In that sense, ontology is literally concerned with **that which is**, **being**, or **the study of what exists**.
 
 The project name compresses that idea into its core ambition. The **T** in **onto** becomes **7**, using seven as a symbol of perfection or completeness within the project's naming metaphor:
 
-> **onto** — that which is  
-> **on7o** — a *perfect description of that which is*
+> **onto**: that which is  
+> **on7o**: a *perfect description of that which is*
 
 This is intentionally aspirational. on7o does not assume that an LLM already knows the user's world, nor that its first interpretation is correct. Instead, it approaches that “perfect description” asymptotically: every captured thought, resolved ambiguity, relationship, correction, and clarification makes the model of the user's world a little more precise.
 
@@ -89,8 +89,8 @@ Each captured thought becomes an observation that can contribute to a larger kno
 
 The backend should attempt to identify, among other things:
 
-- **entities** — people, companies, projects, products, places, concepts;
-- **entity types** — person, organization, project, event, decision, etc.;
+- **entities**: people, companies, projects, products, places, concepts;
+- **entity types**: person, organization, project, event, decision, etc.;
 - **relationships** between entities;
 - **statements and claims** made by the user;
 - **intentions** and things the user wants to remember;
@@ -623,4 +623,4 @@ A useful personal knowledge system should eventually know that when the user say
 
 They belong to an already accumulated network of people, organizations, decisions, events, conversations, and relationships.
 
-on7o is an experiment in building that network directly from everyday thought — one captured thought and one clarification at a time.
+on7o is an experiment in building that network directly from everyday thought, one captured thought and one clarification at a time.

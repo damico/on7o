@@ -5,8 +5,8 @@ import java.nio.file.Path;
 /**
  * Turns captured audio into text.
  *
- * <p>Deliberately narrow, so the engine behind it stays replaceable — the README
- * treats speech-to-text as a swappable component.
+ * <p>Deliberately narrow, so the engine behind it stays replaceable: the
+ * README treats speech-to-text as a swappable component.
  */
 public interface Transcriber {
 

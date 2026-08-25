@@ -31,7 +31,7 @@ public class TranscriptionProperties {
      * How long to wait for a transcription.
      *
      * Whisper on CPU runs several times slower than real time, so this has to be
-     * generous — a minute of speech can take several minutes to transcribe.
+     * generous: a minute of speech can take several minutes to transcribe.
      */
     private Duration timeout = Duration.ofMinutes(10);
 

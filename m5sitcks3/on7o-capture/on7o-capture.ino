@@ -1,4 +1,4 @@
-// on7o — thought capture for the M5Stack StickS3.
+// on7o thought capture for the M5Stack StickS3.
 //
 // Hold the button, speak, release. The audio streams to the on7o server while
 // you are still talking; nothing is interpreted, answered, or acted upon here.

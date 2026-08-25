@@ -21,9 +21,9 @@ import java.nio.file.Path;
 import java.time.Instant;
 
 /**
- * Audio ingestion. The device POSTs the captured bytes as the raw request body —
- * no multipart, no envelope — so the firmware only has to write a fixed header
- * and then stream what the microphone produces.
+ * Audio ingestion. The device POSTs the captured bytes as the raw request
+ * body, with no multipart and no envelope, so the firmware only has to write a
+ * fixed header and then stream what the microphone produces.
  *
  * <pre>
  * POST /api/thoughts/audio?device=m5&amp;sampleRate=16000&amp;channels=1&amp;bits=16
@@ -35,7 +35,7 @@ import java.time.Instant;
  * how long the user will keep the button pressed.
  *
  * <p><b>Transcription is synchronous for now</b>, which is fine for testing but
- * holds the request open for as long as Whisper takes — several times the length
+ * holds the request open for as long as Whisper takes, several times the length
  * of the audio on CPU. Moving it to a worker is the obvious next step.
  */
 @RestController

@@ -1,4 +1,4 @@
-// on7o capture device — M5Stack StickS3.
+// on7o capture device for the M5Stack StickS3.
 //
 // This is the only file you should need to edit.
 #pragma once
@@ -12,7 +12,7 @@
 #if __has_include("secrets.h")
   #include "secrets.h"
 #else
-  #error "Missing secrets.h — copy secrets.h.example to secrets.h and set your Wi-Fi credentials."
+  #error "Missing secrets.h: copy secrets.h.example to secrets.h and set your Wi-Fi credentials."
 #endif
 
 #define ON7O_WIFI_TIMEOUT_MS 20000
@@ -43,7 +43,7 @@
 #define ON7O_BLOCK_SAMPLES 512
 
 // Software gain applied by M5Unified to each sample. The library defaults to 16,
-// which clips speech at conversational distance — measured peaks hit 32752 of a
+// which clips speech at conversational distance: measured peaks hit 32752 of a
 // 32768 full scale. Clipped audio costs speech-to-text accuracy, so we trade
 // loudness for headroom.
 #define ON7O_MIC_MAGNIFICATION 4

@@ -18,8 +18,8 @@ import java.time.Instant;
  * Speech-to-text through a local <a href="https://github.com/ggml-org/whisper.cpp">
  * whisper.cpp</a> server.
  *
- * <p>Runs entirely on this machine — captured thoughts are personal by nature and
- * never leave the LAN.
+ * <p>Runs entirely on this machine: captured thoughts are personal by nature
+ * and never leave the LAN.
  */
 @Service
 public class WhisperCppTranscriber implements Transcriber {

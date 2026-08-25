@@ -17,7 +17,7 @@ bool begin();
 /** True once the microphone is up and producing samples. */
 bool ready();
 
-/** Arms a new capture. Cheap — the microphone is already running. */
+/** Arms a new capture. Cheap: the microphone is already running. */
 void startCapture();
 
 /**

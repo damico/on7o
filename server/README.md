@@ -17,13 +17,13 @@ ingest endpoint: http://192.168.0.10:8080/api/thoughts/audio
 
 ## Security posture
 
-**There is none, deliberately.** No authentication, no TLS, CORS wide open, bound to `0.0.0.0`. This is a LAN-only device during the capture milestone — do not forward this port. The one input check that still holds is path traversal on thought ids.
+**There is none, deliberately.** No authentication, no TLS, CORS wide open, bound to `0.0.0.0`. This is a LAN-only device during the capture milestone. Do not forward this port. The one input check that still holds is path traversal on thought ids.
 
 ## API
 
 ### `POST /api/thoughts/audio`
 
-The device sends the captured bytes as the **raw request body** — no multipart, no JSON envelope — so the firmware only has to write a fixed header and stream what the microphone produces. Chunked bodies are accepted, so it can start uploading before it knows how long the user will keep the button pressed.
+The device sends the captured bytes as the **raw request body** (no multipart, no JSON envelope), so the firmware only has to write a fixed header and stream what the microphone produces. Chunked bodies are accepted, so it can start uploading before it knows how long the user will keep the button pressed.
 
 | Query param | Default | Meaning |
 |---|---|---|
@@ -413,7 +413,7 @@ on7o:
     timeout: 10m
 ```
 
-**Transcription is currently synchronous** — the ingest request stays open until Whisper finishes, which on CPU is several times the length of the audio. That is fine for testing and wrong for the device, whose HTTP client gives up after 8 s. Moving transcription to a worker is the obvious next step.
+**Transcription is currently synchronous**: the ingest request stays open until Whisper finishes, which on CPU is several times the length of the audio. That is fine for testing and wrong for the device, whose HTTP client gives up after 8 s. Moving transcription to a worker is the obvious next step.
 
 If the engine is unreachable or fails, the capture is still stored and `201` is still returned, with a null transcription. A broken speech-to-text engine must never cost the user a thought.
 
@@ -446,7 +446,7 @@ Keeping it in its own file is deliberate: the audio is the record, and a transcr
 
 ## Storage
 
-The filesystem is the whole storage layer for now — one directory per thought, ids timestamp-prefixed so lexical order is chronological:
+The filesystem is the whole storage layer for now: one directory per thought, ids timestamp-prefixed so lexical order is chronological:
 
 ```
 data/thoughts/20260813T194124Z-231c19f0/

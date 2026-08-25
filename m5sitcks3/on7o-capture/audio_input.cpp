@@ -9,7 +9,7 @@ namespace {
 
 // M5Unified keeps up to two recordings queued. With three rotating buffers, the
 // buffer queued two calls ago is guaranteed to be filled by the time the next
-// record() returns — so capture never has to pause while a block is uploaded.
+// record() returns, so capture never has to pause while a block is uploaded.
 constexpr uint8_t kBuffers = 3;
 constexpr uint8_t kQueueDepth = 2;
 

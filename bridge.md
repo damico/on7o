@@ -412,6 +412,12 @@ on purpose: the document is about money, and the first time someone writes a
 figure with a dollar sign in a paragraph, a stray `$` would start swallowing
 text until the next one.
 
+The em dash is gone from every file the project owns: 41 of them, rewritten as
+colons, commas, parentheses or sentence breaks rather than deleted, so each
+sentence still reads. Two remain on purpose. `CLAUDE.md` has to name the
+character in order to forbid it, and `bootstrap.min.css` is a vendored build
+that should stay byte-identical to upstream.
+
 ## Open items carried forward
 
 **Synchronous transcription exceeds firmware timeout.** `kResponseTimeoutMs = 8000`

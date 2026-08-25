@@ -4,7 +4,7 @@
 
 The **HCIN Financial Projection** is an ego-centric visualization of a Human-Centric Intelligence Network (HCIN) focused on the financial dimension of human relationships.
 
-The projection is centered on a single person — the **ego** — and represents:
+The projection is centered on a single person, the **ego**, and represents:
 
 - the people with whom the ego has relationships;
 - the organizations, companies, institutions, or informal groups that contextualize those relationships;
@@ -32,7 +32,7 @@ goal        = understand the ego's financial relationship network
 time        = selected instant or interval
 ```
 
-The same underlying HCIN can later generate other projections — professional, emotional, governance, intellectual, family, or any other relational layer — without changing the underlying semantic representation.
+The same underlying HCIN can later generate other projections (professional, emotional, governance, intellectual, family, or any other relational layer) without changing the underlying semantic representation.
 
 ---
 

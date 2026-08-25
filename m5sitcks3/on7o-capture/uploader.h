@@ -10,7 +10,7 @@ namespace uploader {
  * Opens the connection and writes the request headers.
  *
  * The body uses chunked transfer encoding, so the device does not need to know
- * how long the thought will be before it starts sending — which is the whole
+ * how long the thought will be before it starts sending, which is the whole
  * point of push-to-talk.
  */
 bool begin();

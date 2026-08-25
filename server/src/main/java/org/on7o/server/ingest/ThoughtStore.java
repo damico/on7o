@@ -70,7 +70,7 @@ public class ThoughtStore {
     /**
      * Streams a capture to disk. {@code body} may be raw PCM (wrapped in a WAV
      * container here) or an already-formed WAV file, and its length may be
-     * unknown up front — the header is patched once the stream ends.
+     * unknown up front: the header is patched once the stream ends.
      */
     public Thought store(InputStream body,
                          PcmFormat declaredFormat,

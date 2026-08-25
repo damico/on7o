@@ -1,4 +1,4 @@
-# Wi-Fi credentials — copy secrets.h.example to secrets.h and fill it in.
+# Wi-Fi credentials: copy secrets.h.example to secrets.h and fill it in.
 on7o-capture/secrets.h
 
 # PlatformIO
