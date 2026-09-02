@@ -1,0 +1,5 @@
+<resources>
+    <!-- Placeholder launch theme; the actual UI is drawn by Jetpack Compose in
+         ui/theme, this only avoids a flash of an unstyled system theme. -->
+    <style name="Theme.OnStickBridge" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

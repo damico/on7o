@@ -1,8 +1,9 @@
 # bridge
 
-Handoff from the session of **2026-08-24**, after finishing all sixteen issues of the HCIN-FIN track.
+Handoff from the session of **2026-09-02**, after scaffolding the Android bridge app.
 
-Branch: **`main`**
+Branch: **`feature/android-bluetooth-audio-sync`** (not yet merged to `main`; a separate,
+not-yet-pushed set of commits also exists on another machine and will need merging later).
 
 ---
 
@@ -17,8 +18,94 @@ Branch: **`main`**
 | 5 | LLM interpretation of thoughts | **Done**, rThought + qThought + cThought, plus entity derivation |
 | 6 | Ontology diagrams per stage | **Done**, hand-rolled inline SVG |
 | 7 | HCIN financial projection | **Done**, all 16 issues |
+| 8 | Android bridge app | **Scaffolded this session**, builds and unit-tests green, not yet run against real hardware |
 
 The loop `capture -> transmit -> store -> transcribe -> interpret` is proven end to end on real hardware.
+The Bluetooth leg (`M5StickS3 --Bluetooth--> Android --Internet--> server`) has an Android side now;
+the StickS3 firmware still only speaks Wi-Fi.
+
+---
+
+## What was added this session: the Android bridge app
+
+New Gradle project under `android/` (previously an empty placeholder directory), on branch
+`feature/android-bluetooth-audio-sync`. Purpose: receive captured audio from a paired StickS3 over
+Bluetooth Classic and sync it to the same `/api/thoughts/audio` endpoint the firmware already uses over
+Wi-Fi, tolerating offline periods (capture locally, sync in the background). The StickS3 firmware itself
+was not touched: it has no Bluetooth code, so the Bluetooth link could not be tested against real
+hardware this session.
+
+```
+android/
+  core/                       (pure Kotlin/JVM, no Android deps, runs under plain JUnit)
+    protocol/                 BridgeProtocol, Frame, FrameReader, FrameWriter
+    capture/                  Capture, SyncState, WavHeader, CaptureWriter, CaptureStore
+    sync/                     UploadClient, UploadResult
+  app/                        (the Android application)
+    bluetooth/                BluetoothCaptureService (foreground service, RFCOMM), PairedDeviceRepository
+    sync/                     SyncWorker, SyncScheduler (WorkManager)
+    settings/                 SettingsRepository (DataStore: server URL, paired device)
+    ui/                       HomeScreen, SettingsScreen (Compose)
+  PROTOCOL.md                 the Bluetooth framing spec, marked provisional
+```
+
+Decisions worth remembering:
+
+- **Two Gradle modules, split specifically because the Bluetooth link is untestable here.** Everything
+  that does not need `android.*` (the protocol parser, local storage, the WAV header math, the upload
+  HTTP client) lives in `core` and has unit test coverage: 11 tests, all green
+  (`FrameReaderTest`, `WavHeaderTest`, `CaptureStoreTest`, `UploadClientTest`). Only the socket handling
+  in `BluetoothCaptureService` is unverified end to end.
+- **The Bluetooth framing protocol is a proposal, not a spec.** There is no firmware counterpart yet.
+  `PROTOCOL.md` documents a length-prefixed frame format (CAPTURE_HEADER, AUDIO_CHUNK, CAPTURE_END,
+  CAPTURE_ACK) over the standard SPP UUID, with every frame repeating its magic/version/type so a
+  corrupted stream can resynchronize, matched by KMP search rather than a naive scan so a magic-like
+  byte sequence inside audio payload cannot desync the reader. It needs review before the ESP32 side is
+  written.
+- **The phone is a store-and-forward bridge, not a passthrough.** Captures land in
+  `{filesDir}/captures/{id}/audio.wav` + `capture.json` (same shape as the server's own `ThoughtStore`,
+  right down to reusing its id scheme and its placeholder-header-then-patch approach to streaming to
+  disk), then `SyncWorker` uploads whatever is not yet `SYNCED` whenever `WorkManager` sees
+  `NetworkType.CONNECTED`, plus immediately after a capture finishes and on a manual "Sync now".
+- **Upload reuses the existing server contract unchanged.** `format=wav` on the query string, since the
+  phone always has the complete file by sync time, unlike the firmware's live HTTP-chunked stream. No
+  new server-side endpoint.
+- **No Room, no Hilt.** Flat files plus manual constructor wiring in `BridgeApplication`, matching
+  `ThoughtStore`'s own "the filesystem is deliberately the whole storage layer" stance and the project's
+  general aversion to heavyweight frameworks where a plain approach works.
+- **Settings, not `config.h`.** The server base URL and the paired device address are runtime,
+  DataStore-backed settings, not compiled in, because the phone roams between networks and devices in a
+  way the stationary StickS3 does not.
+
+### Gradle/AGP version pins, and why they are not the newest available
+
+Getting a real build green in this environment surfaced compatibility constraints no amount of reading
+would have: AGP 9.3.0 needs Gradle >=9.5 and, from AGP 9.0 on, folds Kotlin support into AGP itself,
+which conflicts with applying the `org.jetbrains.kotlin.android` plugin separately. The latest Compose
+BOM and OkHttp releases both require `compileSdk 37`, but only platform 36 is installed locally. After
+downgrading through several intermediate combinations, the pins that actually build are:
+
+| Component | Version | Why not newer |
+|---|---|---|
+| AGP | `8.13.2` | 9.x's built-in-Kotlin change and its Gradle floor were both blockers |
+| Gradle | `9.1.0` | wrapper distribution download from `services.gradle.org` was extremely slow in this environment; the wrapper jar and `gradlew`/`gradlew.bat` were fetched directly from GitHub (`raw.githubusercontent.com/gradle/gradle/v9.1.0/...`) instead, then the full distribution was downloaded separately and used directly (not through the wrapper) to run the verification builds |
+| Compose BOM | `2026.03.01` | `2026.08.00` requires `compileSdk 37` |
+| OkHttp | `5.1.0` | `5.5.0` requires `compileSdk 37` |
+
+`compileSdk`/`targetSdk` stayed at `36`, `minSdk` at `26`. None of this blocks anything: it is recorded
+here so the next session does not have to rediscover it, and revisited once `compileSdk 37` /
+newer AGP is worth adopting.
+
+### Verification actually run
+
+```
+./gradlew :core:test          # 11/11 tests green: protocol framing, WAV header, local store, upload contract
+./gradlew :app:assembleDebug  # produces app-debug.apk (13.8 MB)
+```
+
+Not run: anything requiring a real StickS3 speaking Bluetooth (there is no firmware for it yet), and no
+manual UI walkthrough on the `Medium_Phone_API_36.1` emulator (build/test verification only this
+session).
 
 ---
 
@@ -41,7 +128,7 @@ All sixteen are implemented and covered by tests.
 
 ---
 
-## What was added this session
+## What was added in the previous session (2026-08-24): the HCIN-FIN track in detail
 
 ### Issue #1: `POST /api/thoughts/text`
 
@@ -451,12 +538,25 @@ sections later. It now uses `hcin:layer` and `hcin:validFrom`.
 
 ## Open items carried forward
 
+**StickS3 firmware still only speaks Wi-Fi.** The Android bridge app added this session has no
+Bluetooth peer to talk to yet. `android/PROTOCOL.md` is a provisional protocol proposed unilaterally
+from the Android side and needs review before the ESP32 side is written.
+
+**Android app untested against real hardware and unwalked in the emulator.** Build and unit tests are
+green; the Bluetooth service, the Settings device picker, and the Home capture list have not been
+exercised on a running app this session.
+
+**Android's own commits are on a feature branch, not `main`, and there is a separate not-yet-pushed
+set of commits on another machine.** Both will need merging before the Android work and whatever the
+other machine has diverge further.
+
 **Synchronous transcription exceeds firmware timeout.** `kResponseTimeoutMs = 8000`
 in firmware vs ~20 s on CPU. Measure on a GPU machine before changing anything.
 
 **Click at start of each capture.** Fix committed in firmware but not flashed.
 
-**`ON7O_HOST` hardcoded.** mDNS would remove the reflash-on-IP-change cycle.
+**`ON7O_HOST` hardcoded.** mDNS would remove the reflash-on-IP-change cycle. Now doubly relevant: the
+Android app's server URL is a runtime setting precisely to avoid the same problem on the phone side.
 
 **Server unauthenticated.** No auth, no TLS, CORS open. Deliberate for LAN milestone.
 
@@ -467,7 +567,13 @@ in firmware vs ~20 s on CPU. Measure on a GPU machine before changing anything.
 
 ## Suggested next step
 
-Run a real thought through the whole thing with a live API key. Everything is
+Either review `android/PROTOCOL.md` and implement the Bluetooth side of the StickS3 firmware against
+it, so the bridge app has a real peer to connect to, or do a manual walkthrough of the Android app on
+the `Medium_Phone_API_36.1` emulator (Settings screen, capture list against fixture data, a real sync
+against a locally-run `server/`) before going further. Either way, the Android branch needs merging
+with `main`, and with whatever is on the other machine, before it goes further.
+
+Separately, on the HCIN-FIN track: run a real thought through the whole thing with a live API key. Everything is
 proven against a deterministic interpreter, which proves the pipeline and says
 nothing about the model: whether `HCIN_MAPPING` actually gets the consolidation
 stage to emit well-formed `hcin:` and `hcinf:` terms is unknown until it is
