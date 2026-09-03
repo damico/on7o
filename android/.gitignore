@@ -1,1 +1,11 @@
-# Keep this directory in version control until the Android app is implemented.
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.cxx
+*.hprof
+/*/build
+/*/*/build

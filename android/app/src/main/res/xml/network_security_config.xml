@@ -1,0 +1,6 @@
+<network-security-config>
+    <!-- The on7o server is LAN-only, plain HTTP, no TLS (see server/src/main/resources/application.yml).
+         The base URL is whatever LAN host the user enters in Settings, so cleartext
+         has to be allowed broadly rather than pinned to one domain. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
