@@ -1,9 +1,11 @@
 package org.on7o.server.api;
 
+import org.on7o.server.clarification.AnswerKind;
 import org.on7o.server.clarification.ClarificationQuestion;
 import org.on7o.server.clarification.QuestionStatus;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * A clarification question as the API presents it.
@@ -20,6 +22,8 @@ import java.time.Instant;
  * @param required     whether consolidation waits for it
  * @param status       OPEN, ANSWERED, SKIPPED or OBSOLETE
  * @param createdAt    when the question was generated
+ * @param kind         how the question expects to be answered
+ * @param options      the values it offers, empty when it offers none
  */
 public record ClarificationQuestionDto(
         String id,
@@ -29,7 +33,9 @@ public record ClarificationQuestionDto(
         String predicateRef,
         boolean required,
         QuestionStatus status,
-        Instant createdAt) {
+        Instant createdAt,
+        AnswerKind kind,
+        List<String> options) {
 
     /** Presents a stored question. */
     public static ClarificationQuestionDto of(ClarificationQuestion question) {
@@ -41,6 +47,8 @@ public record ClarificationQuestionDto(
                 question.predicateRef(),
                 question.required(),
                 question.status(),
-                question.createdAt());
+                question.createdAt(),
+                question.kind(),
+                question.options());
     }
 }

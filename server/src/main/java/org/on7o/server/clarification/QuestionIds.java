@@ -36,6 +36,18 @@ final class QuestionIds {
         return candidate;
     }
 
+    /**
+     * A stable id for a gap the network found in itself.
+     *
+     * <p>Derived from what the gap is, the node and the missing property, and
+     * from nothing else. The same gap found on a later run therefore produces the
+     * same id and is recognized as the question that was already asked, instead
+     * of being asked again.
+     */
+    static String ofGap(String focusNode, String path) {
+        return format("gap|" + focusNode + "|" + path);
+    }
+
     private static String format(String seed) {
         return PREFIX + String.format("%06x", seed.hashCode() & MASK);
     }

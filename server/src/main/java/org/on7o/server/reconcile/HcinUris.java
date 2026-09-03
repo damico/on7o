@@ -36,6 +36,22 @@ public final class HcinUris {
         return HcinVocabulary.ENTITY_NS + segment + ":" + hash(thoughtId + "|" + localName);
     }
 
+    /**
+     * A local URI for a node the thought left anonymous.
+     *
+     * <p>A consolidated thought may write a membership or an interaction as a
+     * blank node, which is idiomatic OWL for a relation that has no name of its
+     * own. Nothing downstream can hold a blank node: reconciliation identifies
+     * everything by URI, so such a node used to be dropped along with whatever it
+     * said. Naming it from what it says keeps it, and keeps the name stable, which
+     * a blank node's own label is not: a parser mints a fresh one every read.
+     *
+     * @param content everything the node states, in a stable order
+     */
+    public static String anonymous(String content) {
+        return HcinVocabulary.ENTITY_NS + "anonymous:" + hash(content);
+    }
+
     /** The URI of the record of having learned something from a thought. */
     public static String observation(String thoughtId, String aboutUri) {
         return HcinVocabulary.ENTITY_NS + "observation:" + hash(thoughtId + "|" + aboutUri);

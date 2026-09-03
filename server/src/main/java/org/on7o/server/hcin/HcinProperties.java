@@ -14,6 +14,17 @@ public class HcinProperties {
     /** URI of the ego: the person every projection is centred on. */
     private String ego = "urn:hcin:person:me";
 
+    /**
+     * The name the ego is known by, which is how a thought that names them is
+     * recognized as talking about them.
+     *
+     * <p>Without it the ego is a URI nothing in the network points at: a thought
+     * that says "Ninoska invited me to speak" comes back from consolidation
+     * naming a person, that person is minted as an entity of their own, and every
+     * edge lands on it while the projection stays centred on an empty node.
+     */
+    private String egoLabel = "Me";
+
     /** Whether to load the schema files into the schema graph on startup. */
     private boolean loadSchema = true;
 
@@ -31,6 +42,14 @@ public class HcinProperties {
 
     public void setEgo(String ego) {
         this.ego = ego;
+    }
+
+    public String getEgoLabel() {
+        return egoLabel;
+    }
+
+    public void setEgoLabel(String egoLabel) {
+        this.egoLabel = egoLabel;
     }
 
     public boolean isLoadSchema() {

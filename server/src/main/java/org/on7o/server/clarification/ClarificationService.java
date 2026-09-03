@@ -93,6 +93,95 @@ public class ClarificationService {
     }
 
     /**
+     * Adds questions to a thought without retiring the ones already there.
+     *
+     * <p>{@link #replaceQuestions} exists for one generator, the qThought stage,
+     * which produces the whole set at once and owns it. A question that came from
+     * the network is a second source asking about the same thought, and it must
+     * neither retire what the first asked nor be retired by it.
+     *
+     * <p>Adding is idempotent through the ids the caller brings, so re-running the
+     * generator never duplicates a question. A question already on the thought is
+     * not added again; if it is still open, its wording is refreshed from the
+     * proposal, because the id identifies the gap while the text is only the
+     * current rendering of it and a better rendering is worth having.
+     *
+     * <p>A question the qThought stage asked freezes once it has been answered or
+     * skipped: it is what the user actually read, and an answer detached from the
+     * question it answered is worse than an awkward sentence. A question the
+     * network raised does not, because it is identified by the node and property
+     * it is about rather than by its words: re-offering it is how a question that
+     * was once a blank box becomes the list of layers the ontology declares, and
+     * how an answer typed by hand can be given again by clicking.
+     *
+     * @param thoughtId the thought the questions attach to
+     * @param proposed  questions carrying ids derived from what they are about
+     * @return only the questions this call actually added
+     */
+    public List<ClarificationQuestion> addQuestions(String thoughtId, List<ProposedQuestion> proposed)
+            throws IOException {
+
+        Map<String, ProposedQuestion> byId = new LinkedHashMap<>();
+        proposed.forEach(question -> byId.putIfAbsent(question.id(), question));
+
+        List<ClarificationQuestion> kept = new ArrayList<>();
+        for (ClarificationQuestion question : allQuestions(thoughtId)) {
+            ProposedQuestion again = byId.remove(question.id());
+            kept.add(again == null || question.isObsolete()
+                    ? question
+                    : question.withOffer(again.text(), again.kind(), again.options()));
+        }
+
+        Instant now = Instant.now();
+        List<ClarificationQuestion> created = byId.values().stream()
+                .map(question -> new ClarificationQuestion(
+                        question.id(),
+                        thoughtId,
+                        question.text(),
+                        question.subjectRef(),
+                        question.predicateRef(),
+                        question.required(),
+                        QuestionStatus.OPEN,
+                        now,
+                        question.kind(),
+                        question.options()))
+                .toList();
+
+        List<ClarificationQuestion> all = new ArrayList<>(kept);
+        all.addAll(created);
+        store.saveQuestions(thoughtId, all);
+
+        log.info("thought {}: {} question(s) added, {} already present",
+                thoughtId, created.size(), proposed.size() - created.size());
+        return created;
+    }
+
+    /**
+     * A question on its way in, before it becomes one of a thought's questions.
+     *
+     * <p>It carries its own id because the generator is what knows when two
+     * questions are the same question: the same gap, found again, must produce
+     * the same id or every run would ask it afresh.
+     *
+     * @param id           stable id, derived from what the question is about
+     * @param text         the plain-language question shown to the user
+     * @param subjectRef   URI of the node the question is about
+     * @param predicateRef URI of the property that is missing
+     * @param required     whether consolidation should wait for it
+     * @param kind         how the question expects to be answered
+     * @param options      the values it offers, empty when it offers none
+     */
+    public record ProposedQuestion(
+            String id,
+            String text,
+            String subjectRef,
+            String predicateRef,
+            boolean required,
+            AnswerKind kind,
+            List<String> options) {
+    }
+
+    /**
      * Records answers and moves the questions they refer to.
      *
      * <p>An answer to an already-answered question is a new revision, not an

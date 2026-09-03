@@ -191,6 +191,9 @@ public class ReconciliationService {
             Resource relationship = model.createResource(uri);
 
             model.add(relationship, RDF.type, HcinVocabulary.RELATIONSHIP);
+            if (isSocialTie(source, target)) {
+                model.add(relationship, RDF.type, HcinVocabulary.SOCIAL_RELATIONSHIP);
+            }
             model.add(relationship, HcinVocabulary.SOURCE, model.createResource(source.hcinUri()));
             model.add(relationship, HcinVocabulary.TARGET, model.createResource(target.hcinUri()));
             model.add(relationship, HcinVocabulary.RELATION_TYPE,
@@ -326,6 +329,32 @@ public class ReconciliationService {
     // -------------------------------------------------------------------------
     // Provenance
     // -------------------------------------------------------------------------
+
+    /**
+     * Whether an edge is a tie between two parties, rather than a statement of
+     * some other kind that happens to have two ends.
+     *
+     * <p>Written here, where both ends and their kinds are known, rather than
+     * asked of the graph later. What the shapes want to know about an edge, which
+     * relational layer it lives in and which setting it belongs to, are questions
+     * only a tie between people or organizations can answer, and the graph should
+     * say which edges those are instead of every reader working it out again.
+     *
+     * <p>An edge from a node to itself is excluded even when that node is a
+     * person. Reconciliation records identity as a relationship, and a person
+     * being the same person as themselves has no layer and no setting: it is a
+     * statement about naming, not about a tie.
+     */
+    private static boolean isSocialTie(EntityMatch source, EntityMatch target) {
+        return !source.hcinUri().equals(target.hcinUri())
+                && isSocial(source) && isSocial(target);
+    }
+
+    /** Whether one end of an edge is a person or an organization. */
+    private static boolean isSocial(EntityMatch end) {
+        EntityKind kind = end.candidate().kind();
+        return kind == EntityKind.PERSON || kind == EntityKind.ORGANIZATION;
+    }
 
     /** Says how a statement is known, where it came from, and when it was learned. */
     private void annotate(Model model,

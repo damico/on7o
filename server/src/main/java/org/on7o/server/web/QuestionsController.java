@@ -21,6 +21,11 @@ import java.util.Optional;
  *
  * <p>This page is the UI for stage 2 (qThought): the user reads the generated
  * questions and provides answers that will feed into stage 3 (cThought).
+ *
+ * <p>It outlives that stage. Once the network has been reconciled and validated,
+ * it raises questions of its own about the nodes this thought produced, and they
+ * are asked here as well. So the form is shown whenever a question is still open,
+ * not only while consolidation is still ahead.
  */
 @Controller
 public class QuestionsController {
@@ -56,13 +61,27 @@ public class QuestionsController {
         Optional<Transcription> transcriptionOpt = store.findTranscription(id);
         Optional<String> cThoughtOpt = store.findConsolidatedThought(id);
 
+        // Before consolidation the whole set is the conversation, answered ones
+        // included, since the user is working through it. After it, what the
+        // thought said is settled: what stays on the form is what is still open,
+        // plus the questions the network raised about the nodes this thought
+        // produced. Those keep their place even once answered, because they are
+        // about the graph rather than about the transcript, and an answer to one
+        // of them is a statement the user may want to correct or say better.
+        List<ClarificationQuestion> asked = cThoughtOpt.isEmpty()
+                ? questions
+                : questions.stream()
+                        .filter(question -> question.isOpen() || question.predicateRef() != null)
+                        .toList();
+
         model.addAttribute("thoughtId", id);
-        model.addAttribute("questions", questions);
-        model.addAttribute("questionIds", questions.stream().map(ClarificationQuestion::id).toList());
+        model.addAttribute("questions", asked);
+        model.addAttribute("questionIds", asked.stream().map(ClarificationQuestion::id).toList());
         model.addAttribute("answers", currentAnswerTexts(id));
         model.addAttribute("transcriptionText",
                 transcriptionOpt.map(Transcription::text).orElse(""));
         model.addAttribute("hasCThought", cThoughtOpt.isPresent());
+        model.addAttribute("hasOpenQuestions", !asked.isEmpty());
         model.addAttribute("cThought", cThoughtOpt.orElse(""));
         model.addAttribute("derived", thought.isDerived());
         model.addAttribute("sourceEntity", thought.sourceEntity());

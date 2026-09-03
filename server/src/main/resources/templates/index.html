@@ -12,6 +12,7 @@
 <header class="site-header">
     <span class="site-logo">on7o <span>thoughts</span></span>
     <a class="site-nav-link" href="/hcin/financial">financial projection</a>
+    <a class="site-nav-link" href="/hcin/validation">validation</a>
     <span class="thought-time" th:text="${total} + ' captured'"></span>
 </header>
 
@@ -75,6 +76,12 @@
                     <a th:unless="${t.derived}" class="btn-questions" th:href="'/thoughts/' + ${t.id} + '/diagram/rthought'">rThought</a>
                     <a class="btn-questions" th:href="'/thoughts/' + ${t.id} + '/diagram/qthought'">qThought</a>
                     <a class="btn-questions" th:href="'/thoughts/' + ${t.id} + '/diagram/cthought'">cThought</a>
+                    <!--
+                        Only once the three stages are behind it does a thought
+                        have nodes in the network, which is when what the shapes
+                        say about them becomes worth reading.
+                    -->
+                    <a class="btn-questions" th:href="@{/hcin/validation(thought=${t.id})}">validation</a>
                 </th:block>
             </div>
 

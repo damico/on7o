@@ -49,7 +49,7 @@ class ShaclValidationServiceTest {
     }
 
     @Test
-    void rejectsAnAmountWithoutACurrency() {
+    void asksAboutAnAmountWithNoCurrency() {
         ShaclReport report = validate("""
                 me:me    a hcin:Person ; hcin:label "Me" .
                 org:acme a hcin:Organization ; hcin:label "ACME" .
@@ -62,7 +62,32 @@ class ShaclValidationServiceTest {
                     hcin:occurredAt  "2026-08-18T10:00:00.000Z"^^xsd:dateTime .
                 """);
 
+        // Consolidation is told never to invent a currency the thought did not
+        // state, so an absent one is a gap to ask about. The data is still usable.
         assertThat(report.conforms()).isFalse();
+        assertThat(report.isUsable()).isTrue();
+        assertThat(report.clarificationCandidates())
+                .extracting(ShaclFinding::message)
+                .anyMatch(message -> message.contains("currency of this flow is unknown"));
+    }
+
+    @Test
+    void rejectsACurrencyThatIsNotAnIsoCode() {
+        ShaclReport report = validate("""
+                me:me    a hcin:Person ; hcin:label "Me" .
+                org:acme a hcin:Organization ; hcin:label "ACME" .
+
+                ev:payment a hcinf:FinancialFlow ;
+                    hcinf:flowSource me:me ;
+                    hcinf:flowTarget org:acme ;
+                    hcinf:direction  hcinf:Outflow ;
+                    hcinf:amount     "300000.00"^^xsd:decimal ;
+                    hcinf:currency   "reais" ;
+                    hcin:occurredAt  "2026-08-18T10:00:00.000Z"^^xsd:dateTime .
+                """);
+
+        // Absent is a question; malformed is an error. A currency nothing can be
+        // compared against is wrong data, not missing data.
         assertThat(report.isUsable()).isFalse();
         assertThat(report.of(ShaclSeverity.FATAL))
                 .extracting(ShaclFinding::message)
@@ -70,7 +95,7 @@ class ShaclValidationServiceTest {
     }
 
     @Test
-    void rejectsAnInteractionWithNoTimestamp() {
+    void asksWhenAnInteractionWithNoTimestampHappened() {
         ShaclReport report = validate("""
                 me:me  a hcin:Person ; hcin:label "Me" .
                 me:bob a hcin:Person ; hcin:label "Bob" .
@@ -79,9 +104,33 @@ class ShaclValidationServiceTest {
                     hcin:participant me:me , me:bob .
                 """);
 
+        // The consolidation prompt forbids inventing a date the thought did not
+        // state. Demanding one here would have the two rules contradict each
+        // other, one requiring exactly what the other forbids, which is what a
+        // real capture exposed: a lunch nobody dated became a fatal defect.
+        assertThat(report.isUsable()).isTrue();
+        assertThat(report.clarificationCandidates())
+                .extracting(ShaclFinding::message)
+                .anyMatch(message -> message.contains("no date"));
+    }
+
+    @Test
+    void rejectsAnInteractionDatedTwice() {
+        ShaclReport report = validate("""
+                me:me  a hcin:Person ; hcin:label "Me" .
+                me:bob a hcin:Person ; hcin:label "Bob" .
+
+                ev:lunch a hcin:Interaction ;
+                    hcin:participant me:me , me:bob ;
+                    hcin:occurredAt  "2026-08-18T10:00:00.000Z"^^xsd:dateTime ,
+                                     "2026-08-19T10:00:00.000Z"^^xsd:dateTime .
+                """);
+
+        // An interaction happened once. Two dates is not a gap in what is known,
+        // it is a claim that cannot be true.
         assertThat(report.of(ShaclSeverity.FATAL))
                 .extracting(ShaclFinding::message)
-                .anyMatch(message -> message.contains("when it occurred"));
+                .anyMatch(message -> message.contains("happened once"));
     }
 
     @Test
@@ -148,6 +197,41 @@ class ShaclValidationServiceTest {
         assertThat(validation.validateGraph(HcinGraphs.ASSERTED).of(ShaclSeverity.FATAL))
                 .extracting(ShaclFinding::message)
                 .anyMatch(message -> message.contains("the name the ego knows them by"));
+    }
+
+    @Test
+    void asksWhichLayerAndSettingATieBetweenPeopleBelongsTo() {
+        ShaclReport report = validate("""
+                me:me      a hcin:Person ; hcin:label "Me" .
+                me:ninoska a hcin:Person ; hcin:label "Ninoska" .
+
+                ev:invite a hcin:Relationship, hcin:SocialRelationship ;
+                    hcin:source me:me ;
+                    hcin:target me:ninoska .
+                """);
+
+        assertThat(report.clarificationCandidates())
+                .extracting(ShaclFinding::path)
+                .containsExactlyInAnyOrder(
+                        "<http://on7o.io/hcin#layer>", "<http://on7o.io/hcin#context>");
+    }
+
+    @Test
+    void asksNeitherOfAVenueStandingInACity() {
+        ShaclReport report = validate("""
+                ev:venue a hcin:Entity ; hcin:label "Salon Guarayo" .
+                ev:city  a hcin:Entity ; hcin:label "Santa Cruz" .
+
+                ev:located a hcin:Relationship ;
+                    hcin:source ev:venue ;
+                    hcin:target ev:city .
+                """);
+
+        // Reconciliation mints a relationship for every statement a thought makes,
+        // and only the ones joining people or organizations are typed social. The
+        // rest are perfectly good data with no layer to name and no setting to
+        // give, and a report that listed them would bury the ones worth reading.
+        assertThat(report.clarificationCandidates()).isEmpty();
     }
 
     private ShaclReport validate(String turtle) {

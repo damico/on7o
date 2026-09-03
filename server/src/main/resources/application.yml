@@ -41,6 +41,10 @@ on7o:
     # The literal "mem" keeps the dataset in memory, for tests and throwaway runs.
     location: data/hcin
     ego: urn:hcin:person:me
+    # The name the ego is known by. A thought that names this person is talking
+    # about the ego, and its statements land on the ego node instead of minting a
+    # second person the projection would never see.
+    ego-label: "JOSÉ RICARDO DE OLIVEIRA DAMICO"
     load-schema: true
 
   # Analytic and visual parameters of the financial projection. None of this is

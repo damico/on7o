@@ -244,8 +244,9 @@ graphs: `schema`, `asserted`, `inferred`, `hypotheses`, `thoughts`, `questions`,
 ```http
 GET /api/hcin/artifacts
 GET /api/hcin/artifacts/hcin-core.ttl
-GET /api/hcin/data?graph=asserted
-GET /api/hcin/validate?graph=hypotheses
+GET  /api/hcin/data?graph=asserted
+GET  /api/hcin/validate?graph=hypotheses
+POST /api/hcin/clarifications
 ```
 
 The data endpoints serialize out of the dataset every time rather than serving a
@@ -263,6 +264,31 @@ levels, and the third is the interesting one:
 | `CLARIFICATION_CANDIDATE` | something is missing that a person could be asked about |
 
 An authority with no scope is not an error. It is a question waiting to be asked.
+
+`POST /api/hcin/clarifications` is what asks it. It validates the knowledge
+graphs and turns every clarification candidate into a real question, which is the
+one place in on7o where a question starts from the network rather than from
+something the user said. Each carries the node and the property it is about, so
+`subjectRef` and `predicateRef` are populated where a question from a thought
+leaves them null.
+
+A gap is attached to the thought that first observed the node, found through the
+provenance graph, so the question joins that thought's questions and is answered
+in the same place as the rest. The id is derived from the node and the property
+and from nothing else, so calling this repeatedly never duplicates a question:
+one already asked keeps whatever state the user left it in, and only its wording
+is refreshed while it is still open.
+
+Two things are deliberately not asked. A gap on a node no thought is recorded as
+having observed is reported under `unattributed` rather than guessed at, since a
+question has to be asked of someone. And layer and context are asked only about
+nodes joining two people or organizations: reconciliation mints a relationship
+for every statement a thought makes, and which relational layer connects a venue
+to the city it stands in is a question with no answer.
+
+**Answers do not yet reach the graph.** They are recorded like any other answer,
+and nothing feeds them back into the HCIN, so the gap that produced the question
+stays open. Closing that loop is the next piece of work.
 
 ### Projection metrics
 
@@ -423,7 +449,9 @@ on7o:
     timeout: 10m
 ```
 
-**Transcription is currently synchronous**: the ingest request stays open until Whisper finishes, which on CPU is several times the length of the audio. That is fine for testing and wrong for the device, whose HTTP client gives up after 8 s. Moving transcription to a worker is the obvious next step.
+**Transcription happens after the response, not during it.** `POST /api/thoughts/audio` answers `201` as soon as the audio is on disk, in a few dozen milliseconds, and `TranscriptionWorker` runs Whisper on a virtual thread. Transcribing inside the request held it open for several times the length of the audio, far past the 8 s the device waits before it reports a capture as lost, so every real capture looked like a failure on the device screen while the server had stored it perfectly.
+
+The transcription is therefore null in the ingest response, and arrives under `GET /api/thoughts/{id}/transcription` when the engine finishes. Until then the thought is simply pending, a state the index page already shows. A background transcription is best effort: it is not retried, and one still running when the server stops is lost, which costs a button press rather than a thought, since the audio is on disk and the transcribe endpoint runs it again.
 
 If the engine is unreachable or fails, the capture is still stored and `201` is still returned, with a null transcription. A broken speech-to-text engine must never cost the user a thought.
 

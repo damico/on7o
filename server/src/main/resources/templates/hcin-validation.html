@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>on7o - validation</title>
+    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}"/>
+    <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+
+<header class="site-header">
+    <a href="/" class="site-logo">on7o <span>validation</span></a>
+    <a class="site-nav-link" href="/">thoughts</a>
+    <a class="site-nav-link" href="/hcin/financial">financial projection</a>
+</header>
+
+<main class="main-content">
+
+    <h1 class="page-title">What the shapes say</h1>
+    <p class="page-subtitle">
+        The SHACL shapes know what an HCIN statement is meant to say. What they
+        report is not one list: a defect means the data is wrong, while a gap
+        means something is missing that a person could be asked about, which is
+        the pipeline working rather than failing.
+    </p>
+
+    <!--
+        Narrowed to one thought, the page answers what that thought left
+        unresolved. The way out is offered in the same line, since a report that
+        can be filtered has to say when it is.
+    -->
+    <div class="verdict" th:if="${thought}">
+        <span>Showing only what came from thought
+            <a th:href="@{'/thoughts/' + ${thought} + '/questions'}" th:text="${thought}">id</a>.
+        </span>
+        <a th:href="@{/hcin/validation(graph=${graph})}">See the whole network</a>
+    </div>
+
+    <!-- Where the findings are is itself an answer, so the counts sit on the tabs. -->
+    <nav class="graph-tabs">
+        <a th:each="tab : ${tabs}"
+           th:href="@{/hcin/validation(graph=${tab.name},thought=${thought})}"
+           th:classappend="${tab.selected} ? 'graph-tab graph-tab-on' : 'graph-tab'">
+            <span th:text="${tab.name}">graph</span>
+            <span class="graph-tab-count" th:text="${tab.total()}">0</span>
+        </a>
+    </nav>
+
+    <div class="verdict" th:classappend="${usable} ? 'verdict-ok' : 'verdict-bad'">
+        <span th:if="${usable}">Nothing here breaks the model. The data can be trusted as far as it goes.</span>
+        <span th:unless="${usable}">This graph holds statements that cannot be trusted.</span>
+    </div>
+
+    <!-- Defects -->
+    <section th:if="${!defects.isEmpty()}">
+        <p class="section-label">Defects <span class="count-bad" th:text="${defects.size()}">0</span></p>
+        <p class="section-note">The data breaks the model. Nothing should read it as true.</p>
+
+        <div th:each="f : ${defects}" class="finding finding-bad">
+            <div class="finding-message" th:text="${f.message}"></div>
+            <div class="finding-node">
+                <span th:text="${f.described}">node</span>
+                <span class="finding-prop" th:if="${f.property}" th:text="${f.property}"></span>
+            </div>
+            <a class="finding-source" th:if="${f.thoughtId}"
+               th:href="@{'/thoughts/' + ${f.thoughtId} + '/questions'}"
+               th:text="'from ' + ${f.thoughtId}"></a>
+        </div>
+    </section>
+
+    <!-- Gaps -->
+    <section th:if="${!gaps.isEmpty()}">
+        <p class="section-label">Questions waiting to be asked
+            <span class="count-gap" th:text="${gaps.size()}">0</span>
+        </p>
+        <p class="section-note">
+            Not errors. Consolidation is told never to invent a date, an amount or
+            a currency the thought did not state, so an absent one is a thing to
+            ask about. The shapes ask only what a person could answer, so every
+            line here is a question waiting for one.
+        </p>
+
+        <!--
+            The gaps become questions only when someone asks the network to make
+            them into questions. That was an API call and nothing else, which left
+            this page describing work the reader had no way to start. Asking again
+            when nothing is waiting is not wasted either: a question keeps its id
+            and its answers, and is put again with whatever the network has learned
+            to offer since.
+        -->
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+            <button class="btn-submit" id="btn-ask" onclick="askAboutGaps()"
+                    th:text="${waiting > 0}
+                             ? 'Ask about ' + ${waiting} + ' gap(s)'
+                             : 'Ask again with what the network knows now'">Ask</button>
+            <span class="stt-status" id="ask-status" style="display:none">asking...</span>
+            <span class="stt-error"  id="ask-error"  style="display:none"></span>
+        </div>
+
+        <div th:each="f : ${gaps}" class="finding finding-gap">
+            <div class="finding-message" th:text="${f.message}"></div>
+            <div class="finding-node">
+                <span th:text="${f.described}">node</span>
+                <span class="finding-prop" th:if="${f.property}" th:text="${f.property}"></span>
+            </div>
+
+            <!-- What the reader can do about this line, which is not the same for all of them. -->
+            <span class="finding-state" th:switch="${f.state.name()}">
+                <a th:case="'ASKED'" class="finding-answer"
+                   th:href="@{'/thoughts/' + ${f.thoughtId} + '/questions'}">Answer it</a>
+                <span th:case="'CLOSED'" class="finding-source">already answered</span>
+                <span th:case="'WAITING'" class="finding-source">not asked yet</span>
+                <span th:case="*" class="finding-source">no thought recorded this</span>
+            </span>
+
+            <a class="finding-source" th:if="${f.thoughtId}"
+               th:href="@{/hcin/validation(graph=${graph},thought=${f.thoughtId})}"
+               th:text="'from ' + ${f.thoughtId}"></a>
+        </div>
+    </section>
+
+    <!-- Thin -->
+    <section th:if="${!thin.isEmpty()}">
+        <p class="section-label">Thin <span class="count-thin" th:text="${thin.size()}">0</span></p>
+        <p class="section-note">Usable, but less than the model can hold.</p>
+
+        <div th:each="f : ${thin}" class="finding finding-thin">
+            <div class="finding-message" th:text="${f.message}"></div>
+            <div class="finding-node">
+                <span th:text="${f.described}">node</span>
+                <span class="finding-prop" th:if="${f.property}" th:text="${f.property}"></span>
+            </div>
+            <a class="finding-source" th:if="${f.thoughtId}"
+               th:href="@{'/thoughts/' + ${f.thoughtId} + '/questions'}"
+               th:text="'from ' + ${f.thoughtId}"></a>
+        </div>
+    </section>
+
+    <div class="empty-state"
+         th:if="${defects.isEmpty() and gaps.isEmpty() and thin.isEmpty()}">
+        <p th:unless="${thought}">The shapes found nothing in <span th:text="${graph}">this graph</span>.</p>
+        <p th:if="${thought}">
+            The shapes found nothing this thought put in <span th:text="${graph}">this graph</span>.
+        </p>
+        <p class="section-note">
+            An empty graph and a complete one look the same here. Check the counts
+            above to tell them apart.
+        </p>
+        <p class="section-note" th:if="${thought}">
+            A thought whose statements were never reconciled into the network has
+            no nodes for the shapes to read, and looks like this in every graph.
+        </p>
+    </div>
+
+</main>
+
+<script>
+    // The network validating itself and the network asking about what it found
+    // are one gesture from here, so the page reloads into what it now says.
+    function askAboutGaps() {
+        var btn    = document.getElementById('btn-ask');
+        var status = document.getElementById('ask-status');
+        var error  = document.getElementById('ask-error');
+
+        btn.disabled = true;
+        status.style.display = 'inline';
+        error.style.display  = 'none';
+
+        fetch('/api/hcin/clarifications', {method: 'POST'})
+            .then(function(res) {
+                if (!res.ok) {
+                    throw new Error('server returned ' + res.status);
+                }
+                window.location.reload();
+            })
+            .catch(function(err) {
+                status.style.display = 'none';
+                error.textContent    = err.message;
+                error.style.display  = 'inline';
+                btn.disabled = false;
+            });
+    }
+</script>
+
+</body>
+</html>

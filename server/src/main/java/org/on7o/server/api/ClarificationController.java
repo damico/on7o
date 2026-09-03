@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.on7o.server.clarification.AnswerSubmission;
 import org.on7o.server.clarification.ClarificationQuestion;
 import org.on7o.server.clarification.ClarificationService;
+import org.on7o.server.clarification.NetworkAnswerService;
 import org.on7o.server.ingest.ThoughtNotFoundException;
 import org.on7o.server.ingest.ThoughtStore;
 import org.springframework.http.MediaType;
@@ -36,10 +37,14 @@ import java.util.List;
 public class ClarificationController {
 
     private final ClarificationService clarification;
+    private final NetworkAnswerService networkAnswers;
     private final ThoughtStore thoughts;
 
-    public ClarificationController(ClarificationService clarification, ThoughtStore thoughts) {
+    public ClarificationController(ClarificationService clarification,
+                                   NetworkAnswerService networkAnswers,
+                                   ThoughtStore thoughts) {
         this.clarification = clarification;
+        this.networkAnswers = networkAnswers;
         this.thoughts = thoughts;
     }
 
@@ -72,6 +77,12 @@ public class ClarificationController {
                 .toList();
 
         List<ClarificationQuestion> questions = clarification.submitAnswers(id, submissions);
+
+        // An answer to a question the network raised about itself is knowledge,
+        // not just a record of what was said. Writing it back is what closes the
+        // gap the question came from.
+        networkAnswers.apply(id);
+
         return ClarificationQuestionsResponse.of(id, questions);
     }
 

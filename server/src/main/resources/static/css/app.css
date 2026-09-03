@@ -249,6 +249,43 @@ a {
     border-color: #444;
 }
 
+/* A question with a known answer set is answered by clicking, not by typing. */
+
+.question-input-line {
+    min-height: 0;
+    resize: none;
+}
+
+.option-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.option-chip {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.option-chip:hover {
+    border-color: #444;
+    color: var(--text);
+}
+
+.option-chip-on {
+    color: #000;
+    background: var(--text);
+    border-color: var(--text);
+}
+
 .btn-submit {
     font-size: 13px;
     font-family: var(--font);
@@ -316,3 +353,161 @@ a {
 .site-nav-link:hover {
     color: var(--text);
 }
+
+/* ---- Validation page ---- */
+
+.graph-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 28px 0 20px;
+    flex-wrap: wrap;
+}
+
+.graph-tab {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 13px;
+    font-family: var(--mono);
+}
+
+.graph-tab:hover {
+    border-color: #2c2c2c;
+    color: var(--text);
+}
+
+.graph-tab-on {
+    border-color: #3a3a3a;
+    background: var(--bg-card);
+    color: var(--text);
+}
+
+.graph-tab-count {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.graph-tab-on .graph-tab-count {
+    color: var(--text-secondary);
+}
+
+.verdict {
+    border: 1px solid var(--border);
+    border-left-width: 2px;
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin-bottom: 32px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.verdict-ok {
+    border-left-color: #3d6b46;
+}
+
+.verdict-bad {
+    border-left-color: #7a3b3b;
+}
+
+.section-note {
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.6;
+    margin: -4px 0 18px;
+    max-width: 62ch;
+}
+
+.section-note code {
+    color: var(--text-secondary);
+    font-family: var(--mono);
+    font-size: 12px;
+}
+
+.finding {
+    border: 1px solid var(--border);
+    border-left-width: 2px;
+    border-radius: 4px;
+    background: var(--bg-card);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+
+/* The one distinction the shapes exist to draw, drawn. */
+.finding-bad  { border-left-color: #7a3b3b; }
+.finding-gap  { border-left-color: #4a5a7a; }
+.finding-thin { border-left-color: #6b5c33; }
+
+.finding-message {
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.finding-node {
+    margin-top: 7px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.finding-prop {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin-left: 8px;
+}
+
+.finding-source {
+    display: inline-block;
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    text-decoration: none;
+}
+
+a.finding-source:hover {
+    color: var(--text-secondary);
+}
+
+/* A gap that became a question is the only line here with somewhere to go. */
+.finding-answer {
+    display: inline-block;
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 2px 9px;
+    text-decoration: none;
+}
+
+.finding-answer:hover {
+    border-color: #444;
+    color: var(--text);
+}
+
+/* The state of a line and its provenance are two different remarks. */
+.finding-state + a.finding-source {
+    margin-left: 12px;
+}
+
+.count-bad,
+.count-gap,
+.count-thin {
+    font-family: var(--mono);
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+.count-bad  { color: #a05a5a; }
+.count-gap  { color: #6f83ab; }
+.count-thin { color: #9c8850; }

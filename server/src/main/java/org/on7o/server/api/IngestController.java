@@ -4,9 +4,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.on7o.server.ingest.PcmFormat;
 import org.on7o.server.ingest.Thought;
 import org.on7o.server.ingest.ThoughtStore;
-import org.on7o.server.stt.Transcriber;
+import org.on7o.server.ingest.TranscriptionWorker;
 import org.on7o.server.stt.Transcription;
-import org.on7o.server.stt.TranscriptionProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.nio.file.Path;
 import java.time.Instant;
 
 /**
@@ -34,9 +32,11 @@ import java.time.Instant;
  * Chunked bodies are accepted, so the device may start uploading before it knows
  * how long the user will keep the button pressed.
  *
- * <p><b>Transcription is synchronous for now</b>, which is fine for testing but
- * holds the request open for as long as Whisper takes, several times the length
- * of the audio on CPU. Moving it to a worker is the obvious next step.
+ * <p><b>Transcription does not happen here.</b> The response says the thought is
+ * stored, and speech-to-text runs afterwards on a background thread. Waiting for
+ * Whisper would hold the request open for several times the length of the audio,
+ * which is far longer than the eight seconds the device waits before it gives up
+ * and reports a capture as lost.
  */
 @RestController
 public class IngestController {
@@ -44,18 +44,20 @@ public class IngestController {
     private static final Logger log = LoggerFactory.getLogger(IngestController.class);
 
     private final ThoughtStore store;
-    private final Transcriber transcriber;
-    private final TranscriptionProperties sttProperties;
+    private final TranscriptionWorker transcriptionWorker;
 
-    public IngestController(ThoughtStore store,
-                            Transcriber transcriber,
-                            TranscriptionProperties sttProperties) {
+    public IngestController(ThoughtStore store, TranscriptionWorker transcriptionWorker) {
         this.store = store;
-        this.transcriber = transcriber;
-        this.sttProperties = sttProperties;
+        this.transcriptionWorker = transcriptionWorker;
     }
 
-    /** What the caller gets back: the capture, and what was understood from it. */
+    /**
+     * What the caller gets back: the capture, and what was understood from it.
+     *
+     * <p>The transcription is null on ingestion, because it has not been made
+     * yet. It arrives under {@code GET /api/thoughts/{id}/transcription} once
+     * the engine finishes.
+     */
     public record IngestResult(Thought thought, Transcription transcription) {
     }
 
@@ -86,28 +88,10 @@ public class IngestController {
         log.info("captured {} from {} ({} ms, {} bytes)",
                 thought.id(), thought.deviceId(), thought.durationMs(), thought.audioBytes());
 
-        return ResponseEntity.created(URI.create("/api/thoughts/" + thought.id()))
-                .body(new IngestResult(thought, transcribe(thought)));
-    }
+        transcriptionWorker.submit(thought);
 
-    /**
-     * The capture is the record; the transcription is derived from it. A failing
-     * speech-to-text engine must never cost the user a thought, so this returns
-     * null instead of propagating.
-     */
-    private Transcription transcribe(Thought thought) {
-        if (!sttProperties.isEnabled()) {
-            return null;
-        }
-        try {
-            Path audio = store.audioPath(thought);
-            Transcription transcription = transcriber.transcribe(audio, thought.id());
-            store.saveTranscription(transcription);
-            return transcription;
-        } catch (IOException | RuntimeException e) {
-            log.warn("could not transcribe {}: {}", thought.id(), e.getMessage());
-            return null;
-        }
+        return ResponseEntity.created(URI.create("/api/thoughts/" + thought.id()))
+                .body(new IngestResult(thought, null));
     }
 
     private static boolean isWav(String format, String contentType) {

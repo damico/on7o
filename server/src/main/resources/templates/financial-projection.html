@@ -69,6 +69,15 @@
         }
         .proj-contrib span { color: var(--text); }
 
+        /* Where this node came from, as somewhere to go rather than a fact to read. */
+        .proj-source {
+            width: 100%; margin-top: 6px; padding: 7px 9px;
+            background: #0a0a0a; color: var(--text);
+            border: 1px solid var(--border); border-radius: 6px;
+            font-family: var(--mono); font-size: 11px;
+        }
+        .proj-source:focus { outline: none; border-color: #444; }
+
         .proj-legend {
             position: absolute; left: 16px; bottom: 14px;
             font-family: var(--mono); font-size: 11px; color: var(--text-muted);
@@ -555,7 +564,52 @@
             row(panel, 'belongs to', node.organizationIds.join(', '));
         }
 
+        loadMentions(panel, node.id);
         loadContributions(panel, node.id);
+    }
+
+    // A node on the picture is a name and a few numbers. What put it there was
+    // something said out loud, so the panel offers the thoughts that mentioned
+    // this person and opens the consolidated ontology of whichever one is picked.
+    function loadMentions(panel, nodeId) {
+        fetch('/api/hcin/mentions?entity=' + encodeURIComponent(nodeId))
+            .then(function(res) { return res.json(); })
+            .then(function(payload) {
+                if (!payload.mentions.length) { return; }
+
+                var heading = document.createElement('div');
+                heading.className = 'proj-section';
+                heading.textContent = 'thoughts that mention this';
+                panel.appendChild(heading);
+
+                var select = document.createElement('select');
+                select.className = 'proj-source';
+
+                var first = document.createElement('option');
+                first.value = '';
+                first.textContent = payload.mentions.length === 1
+                    ? 'open the cThought'
+                    : 'open one of ' + payload.mentions.length + ' cThoughts';
+                select.appendChild(first);
+
+                payload.mentions.forEach(function(mention) {
+                    var option = document.createElement('option');
+                    option.value = mention.thoughtId;
+                    option.textContent = mention.capturedAt.slice(0, 10)
+                        + (mention.summary ? ' \u00b7 ' + mention.summary : '');
+                    select.appendChild(option);
+                });
+
+                select.addEventListener('change', function() {
+                    if (select.value) {
+                        window.location.href =
+                            '/thoughts/' + encodeURIComponent(select.value) + '/diagram/cthought';
+                    }
+                });
+
+                panel.appendChild(select);
+            })
+            .catch(function() { /* the panel is still useful without the provenance */ });
     }
 
     function row(panel, label, value) {

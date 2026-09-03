@@ -1,6 +1,7 @@
 package org.on7o.server.ingest;
 
 import org.on7o.server.clarification.ClarificationService;
+import org.on7o.server.hcin.HcinRepository;
 import org.on7o.server.llm.EntityCandidate;
 import org.on7o.server.llm.InterpretationException;
 import org.on7o.server.llm.QThoughtResult;
@@ -41,14 +42,17 @@ public class EntityThoughtService {
     private final ThoughtInterpreter interpreter;
     private final TurtleDiagramParser diagramParser;
     private final ClarificationService clarification;
+    private final HcinRepository repository;
 
     public EntityThoughtService(ThoughtStore store, ThoughtInterpreter interpreter,
                                 TurtleDiagramParser diagramParser,
-                                ClarificationService clarification) {
+                                ClarificationService clarification,
+                                HcinRepository repository) {
         this.store = store;
         this.interpreter = interpreter;
         this.diagramParser = diagramParser;
         this.clarification = clarification;
+        this.repository = repository;
         this.stageLookups = Map.of(
                 "rthought", store::findRawThought,
                 "qthought", store::findQuestionsThought,
@@ -94,6 +98,14 @@ public class EntityThoughtService {
      * definition and derives a thought for each, best-effort: a failure on one
      * candidate is logged and skipped rather than failing the whole scan.
      *
+     * <p>A term the vocabulary already defines is dropped before it becomes a
+     * thought. The scan reads one consolidated thought in isolation and cannot
+     * tell a concept the user left unexplained from a token the pipeline stamped
+     * on every statement: it once proposed that the user explain what
+     * {@code Asserted} means, which is a question about the tool wearing the
+     * clothes of a question about their life. What the ontology defines is not
+     * the user's to define.
+     *
      * @param parentId       id of the thought whose cThought was just consolidated
      * @param cThoughtTurtle the consolidated ontology to scan
      */
@@ -107,6 +119,11 @@ public class EntityThoughtService {
         }
 
         for (EntityCandidate candidate : candidates) {
+            if (repository.definesTerm(candidate.label())) {
+                log.info("entity scan proposed '{}', which the vocabulary already defines; skipped",
+                        candidate.label());
+                continue;
+            }
             try {
                 Thought derived = deriveAndQuestion(parentId, candidate.label(), candidate.reason());
                 log.info("auto-derived thought {} for entity '{}' from {}",

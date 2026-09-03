@@ -1,5 +1,6 @@
 package org.on7o.server.api;
 
+import org.on7o.server.clarification.NetworkClarificationService;
 import org.on7o.server.hcin.HcinDataset;
 import org.on7o.server.hcin.HcinGraphs;
 import org.on7o.server.hcin.HcinRepository;
@@ -9,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,6 +27,7 @@ import java.util.List;
  * GET /api/hcin/data
  * GET /api/hcin/data?graph=asserted
  * GET /api/hcin/validate?graph=asserted
+ * POST /api/hcin/clarifications
  * </pre>
  *
  * <p>Exists so that the semantic layer can be inspected without reading the
@@ -42,10 +45,14 @@ public class HcinController {
 
     private final HcinRepository repository;
     private final ShaclValidationService validation;
+    private final NetworkClarificationService networkClarification;
 
-    public HcinController(HcinRepository repository, ShaclValidationService validation) {
+    public HcinController(HcinRepository repository,
+                          ShaclValidationService validation,
+                          NetworkClarificationService networkClarification) {
         this.repository = repository;
         this.validation = validation;
+        this.networkClarification = networkClarification;
     }
 
     /** The schema files this build ships, and the exports that can be generated. */
@@ -99,6 +106,24 @@ public class HcinController {
     @GetMapping(value = "/api/hcin/validate", produces = MediaType.APPLICATION_JSON_VALUE)
     public ShaclReport validate(@RequestParam(defaultValue = "asserted") String graph) {
         return validation.validateGraph(HcinGraphs.resolve(graph));
+    }
+
+    /**
+     * Asks the network about its own gaps.
+     *
+     * <p>Every other question in on7o starts from something the user said. This
+     * one starts from what the shapes know an HCIN statement is meant to say, so
+     * the network asks about what it is missing rather than waiting for a thought
+     * to raise the subject.
+     *
+     * <p>Safe to call repeatedly: a gap already asked about keeps the question it
+     * produced, in whatever state the user left it.
+     */
+    @PostMapping(value = "/api/hcin/clarifications", produces = MediaType.APPLICATION_JSON_VALUE)
+    public NetworkClarificationResponse askAboutGaps() throws IOException {
+        NetworkClarificationService.Result result = networkClarification.askAboutGaps();
+        return NetworkClarificationResponse.of(
+                result.gapsFound(), result.asked(), result.unattributed());
     }
 
     private static KnowledgeArtifactDto.ArtifactKind kindOf(String name) {

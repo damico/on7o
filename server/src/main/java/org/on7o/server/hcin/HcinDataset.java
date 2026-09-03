@@ -68,6 +68,11 @@ public class HcinDataset {
         return properties.getEgo();
     }
 
+    /** The name the ego is known by. */
+    public String egoLabel() {
+        return properties.getEgoLabel();
+    }
+
     /**
      * Reads a packaged schema artifact as text.
      *

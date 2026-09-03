@@ -1,6 +1,6 @@
 # bridge
 
-Handoff from the session of **2026-08-24**, after finishing all sixteen issues of the HCIN-FIN track.
+Handoff from the session of **2026-09-01**, after moving transcription off the request thread so a capture from the device stops reporting failure.
 
 Branch: **`main`**
 
@@ -12,13 +12,122 @@ Branch: **`main`**
 |---|---|---|
 | 1 | Push-to-talk capture on the M5 device | **Done**, running on hardware |
 | 2 | Audio to a Spring Boot server over Wi-Fi | **Done**, verified byte-exact |
-| 3 | Speech-to-text | **Done**, local Whisper, synchronous |
+| 3 | Speech-to-text | **Done**, local Whisper, off the request thread |
 | 4 | Persist the original transcription | **Done**, `transcription.json` |
 | 5 | LLM interpretation of thoughts | **Done**, rThought + qThought + cThought, plus entity derivation |
 | 6 | Ontology diagrams per stage | **Done**, hand-rolled inline SVG |
 | 7 | HCIN financial projection | **Done**, all 16 issues |
 
 The loop `capture -> transmit -> store -> transcribe -> interpret` is proven end to end on real hardware.
+
+All eighteen issues are closed on GitHub, each with the commit that implemented
+it: `945c2a8` for issues 1 to 16, `6e61879` for 17 and 18.
+
+---
+
+## What was added this session
+
+### Transcription no longer happens inside the ingest request
+
+This was the last thing standing between the device and a clean end-to-end run.
+`IngestController` transcribed before answering, so the request stayed open for
+as long as Whisper took, measured here at **21.7 s for 4 s of audio** on CPU. The
+firmware gives up after `kResponseTimeoutMs = 8000` and shows `lost link`, so
+every real capture looked like a failure on the device while the server had
+stored the audio perfectly and transcribed it correctly.
+
+```
+ingest/
++-- TranscriptionWorker   (transcribe and save, on a virtual thread or on the caller's)
+```
+
+`POST /api/thoughts/audio` now answers `201` as soon as the audio is on disk,
+measured at **79 ms** for the same capture, and hands the thought to the worker.
+The transcription is null in that response and arrives under
+`GET /api/thoughts/{id}/transcription` when the engine finishes.
+
+- **The capture is the record and the transcription is derived from it.** That
+  was already the rule when the engine failed, where a `201` with a null
+  transcription is the honest answer. Being slow is the same kind of event as
+  failing, so it gets the same answer, and the pending state is one the index
+  page already renders.
+- **One implementation of "transcribe and store".** `TranscribeController` calls
+  the same worker method rather than repeating the store-transcribe-save
+  sequence, so the SSE path and the ingest path cannot drift.
+- **A background job is not retried.** One still running when the server stops is
+  lost, which costs a button press and not a thought: the audio is on disk and
+  the transcribe endpoint runs it again.
+- **The in-flight guard is only on `submit`.** Two ingests of the same thought
+  cannot double-transcribe it, while the explicit endpoint always runs, because
+  pressing a button means "do this now".
+
+Nothing about this needed a firmware change. The 8 s timeout is now generous
+rather than tight, and was left alone.
+
+### The network can now ask about its own gaps
+
+Every question on7o asked until today started from something the user said: the
+qThought stage reads one thought and asks what it cannot resolve from the text.
+It never saw the HCIN, which is why `subjectRef` and `predicateRef` had been null
+on every question since the contract was written. There was no node to point at,
+because the question did not come from the graph.
+
+```
+clarification/
++-- NetworkClarificationService  (validate, then ask about what is missing)
++-- GapPhrasing                  (a SHACL message is not a question)
++-- ClarificationService.addQuestions / ProposedQuestion
+hcin/
++-- HcinRepository.observingThought, describe, connectsSocialEntities
+api/
++-- POST /api/hcin/clarifications, NetworkClarificationResponse
+```
+
+On the first real capture this produced three questions the pipeline had no
+other way to ask: which layer and which setting the invitation between the ego
+and Ninoska belongs to, and when the interaction happened.
+
+- **A gap is attached to the thought that produced it.** A node has no
+  conversation of its own, but the thought that introduced it does, so the
+  question joins that thought's questions and travels through the lifecycle that
+  already exists. The provenance graph is what makes that possible, and it is
+  the first time anything has read it back.
+- **The id comes from the gap.** Node plus property, and nothing else, so the
+  same gap found on a later run is recognized as the question already asked.
+- **The text is refreshed while the question is open.** The id says which gap is
+  being asked about; the wording is only the current rendering of it. Once
+  answered or skipped the wording freezes, because it is what the user read.
+  This was written after a first run produced "the relationship 57dcc0e01676"
+  and re-running could not improve it.
+- **These questions are never required.** A required question blocks
+  consolidation, and the thought that produced the node has already been
+  consolidated. Blocking it retroactively would strand the thought.
+- **A gap is only asked about when it has an answer.** Reconciliation mints an
+  `hcin:Relationship` for every statement a thought makes, geography included, so
+  without a test the network asked which relational layer connects a venue to the
+  city it stands in. Layer and context are now asked only about nodes joining two
+  social entities. The gap stays in the validation report, where it is a true
+  observation; it just does not become a question.
+
+### A shape and a prompt that contradicted each other
+
+The consolidation prompt says never to invent a date, an amount or a currency the
+thought did not state. Three shapes required exactly those, as violations. The
+two rules had never met, because every fixture had complete data.
+
+The first real capture was an invitation with no date, which the model correctly
+left out and the shapes then called a fatal defect. Presence and well-formedness
+are now separate constraints in all three places: a missing date or currency is a
+clarification candidate, while a malformed one, or two dates on one interaction,
+stays a violation. `ShaclValidationServiceTest` gained the two cases that pin the
+distinction.
+
+### The device host was stale again
+
+`ON7O_HOST` pointed at `10.109.118.42`, from a network the machine is no longer
+on. It now reads `172.25.234.30`, which is what the server prints on startup.
+The Wi-Fi SSID in `secrets.h` did not change. This is the third time the address
+has been edited by hand, which is the argument for mDNS getting made for us.
 
 ---
 
@@ -451,12 +560,12 @@ sections later. It now uses `hcin:layer` and `hcin:validFrom`.
 
 ## Open items carried forward
 
-**Synchronous transcription exceeds firmware timeout.** `kResponseTimeoutMs = 8000`
-in firmware vs ~20 s on CPU. Measure on a GPU machine before changing anything.
+**Transcription latency is unmeasured on a GPU.** 21.7 s for 4 s of audio on
+CPU no longer blocks the device, but it does mean a thought is pending for half a
+minute before it can be interpreted.
 
-**Click at start of each capture.** Fix committed in firmware but not flashed.
-
-**`ON7O_HOST` hardcoded.** mDNS would remove the reflash-on-IP-change cycle.
+**`ON7O_HOST` hardcoded.** mDNS would remove the reflash-on-IP-change cycle, and
+the address has now been edited by hand three times.
 
 **Server unauthenticated.** No auth, no TLS, CORS open. Deliberate for LAN milestone.
 
@@ -479,9 +588,25 @@ After that, the obvious openings:
 - **Dependency and reciprocity.** Two components of the relationship vector are
   still null. They are the ones that would let the projection answer whether a
   relationship is balanced.
-- **Clarification from the shapes.** SHACL already produces clarification
-  candidates. Turning those into questions would close the loop: the network
-  would ask about its own gaps rather than waiting for a thought to raise them.
+- **An answer does not reach the graph.** The network now asks about its own
+  gaps, but answering one writes to `answers.json` and stops there. Nothing feeds
+  a layer or a context back into the HCIN, so the gap stays open and the same
+  question will be asked again about a node that never fills in. This is the half
+  of the loop still missing, and it is the same missing piece as the one below:
+  nothing promotes anything.
+- **Nothing ever becomes a fact.** Reconciliation writes to the hypotheses graph
+  and never promotes, which is right as a default and total as a rule. The first
+  real capture put eleven entities and ten relationships into the network and
+  left the asserted graph empty, so the financial projection drew one node, the
+  ego, from a network that knew four people. Some evidence has to be enough, and
+  a user answering a question about a statement is the obvious candidate.
+- **A membership written as a blank node is silently dropped.** The model
+  consolidated `_:membership1 a hcin:Membership` with a role of CEO, correct in
+  every respect except that it had no URI, and `CThoughtReader.readEvents` skips
+  a subject that is not a URI resource. Nothing warns. Memberships are what draw
+  organizations as enclosures, so the loss is not cosmetic. Skolemizing on the
+  way in would fix it, and needs a rule for what makes two blank memberships the
+  same one.
 - **Entity matching beyond the name.** `EntityMatcher` matches on a normalized
   label, so two people with the same name are one person. The strategy is
   isolated behind one class for exactly this reason.

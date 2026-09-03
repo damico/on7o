@@ -36,6 +36,7 @@ public final class HcinVocabulary {
     public static final Resource MEMBERSHIP = resource("Membership");
     public static final Resource ROLE = resource("Role");
     public static final Resource RELATIONSHIP = resource("Relationship");
+    public static final Resource SOCIAL_RELATIONSHIP = resource("SocialRelationship");
     public static final Resource INTERACTION = resource("Interaction");
     public static final Resource CONTEXT = resource("Context");
     public static final Resource GOAL = resource("Goal");

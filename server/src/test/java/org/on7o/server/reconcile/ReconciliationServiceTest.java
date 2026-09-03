@@ -80,7 +80,7 @@ class ReconciliationServiceTest {
         hcin = new HcinFixture();
         repository = hcin.repository();
         reconciliation = new ReconciliationService(
-                store, new CThoughtReader(), new EntityMatcher(repository), repository);
+                store, new CThoughtReader(repository), new EntityMatcher(repository), repository);
 
         thoughtId = new ThoughtService(store)
                 .ingestText("Almocei com o Bob.", CAPTURED_AT, Thought.SOURCE_SYNTHETIC, null)
@@ -131,6 +131,71 @@ class ReconciliationServiceTest {
         assertThat(repository.size(HcinGraphs.ASSERTED)).isEqualTo(asserted);
         assertThat(repository.size(HcinGraphs.HYPOTHESES)).isEqualTo(hypotheses);
         assertThat(repository.size(HcinGraphs.PROVENANCE)).isEqualTo(provenance);
+    }
+
+    @Test
+    void marksOnlyTheEdgesBetweenPeopleAndOrganizationsAsSocial() throws IOException {
+        store.saveConsolidatedThought(thoughtId, CTHOUGHT + """
+
+            on7o:Venue a on7o:Place ; rdfs:label "Salon Guarayo" .
+            on7o:City  a on7o:Place ; rdfs:label "Santa Cruz" .
+
+            on7o:Venue on7o:locatedIn on7o:City .
+            << on7o:Venue on7o:locatedIn on7o:City >>
+                    on7o:knowledgeStatus on7o:Asserted ;
+                    on7o:confidence      0.9 .
+
+            on7o:Bob on7o:sameAs on7o:Bob .
+            << on7o:Bob on7o:sameAs on7o:Bob >>
+                    on7o:knowledgeStatus on7o:Asserted ;
+                    on7o:confidence      0.9 .
+            """);
+
+        reconciliation.reconcile(thoughtId);
+        String asserted = repository.export(HcinGraphs.ASSERTED);
+
+        // Which relational layer a tie lives in, and which setting it belongs to,
+        // are questions only a tie between people or organizations can answer. The
+        // graph says which edges those are, so the shapes can ask of them alone
+        // instead of asking of everything and being filtered afterwards.
+        assertThat(relationshipOn(asserted, "worksAt")).contains("hcin:SocialRelationship");
+        assertThat(relationshipOn(asserted, "sameAs"))
+                .contains("hcin:Relationship")
+                .doesNotContain("hcin:SocialRelationship");
+        assertThat(relationshipOn(asserted, "locatedIn"))
+                .contains("hcin:Relationship")
+                .doesNotContain("hcin:SocialRelationship");
+    }
+
+    /**
+     * The block of exported Turtle describing the relationship that reifies one
+     * predicate. Relationship URIs are hashes, so the predicate is what names it.
+     */
+    private static String relationshipOn(String turtle, String predicate) {
+        return java.util.Arrays.stream(turtle.split("\n\n"))
+                .filter(block -> block.contains("hcin:Relationship"))
+                .filter(block -> block.contains(predicate))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no relationship on " + predicate));
+    }
+
+    @Test
+    void landsWhatTheEgoDidOnTheEgoRatherThanOnASecondPerson() throws IOException {
+        HcinFixture named = new HcinFixture("Bob");
+        ReconciliationService withEgo = new ReconciliationService(
+                store, new CThoughtReader(named.repository()), new EntityMatcher(named.repository()),
+                named.repository());
+        store.saveConsolidatedThought(thoughtId, CTHOUGHT);
+
+        withEgo.reconcile(thoughtId);
+
+        // The thought calls the ego by name, because that is how people speak and
+        // how consolidation writes it down. Minting a second Bob would leave the
+        // projection centred on a node nothing points at, which is what used to
+        // happen.
+        assertThat(named.repository().exists("urn:hcin:person:bob")).isFalse();
+        assertThat(named.repository().export(HcinGraphs.ASSERTED))
+                .contains("urn:hcin:person:me");
     }
 
     @Test

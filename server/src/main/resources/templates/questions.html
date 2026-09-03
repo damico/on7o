@@ -36,30 +36,128 @@
         <pre class="cthought-output" id="cthought-output" th:text="${cThought}"></pre>
     </div>
 
-    <!-- Form to answer questions -->
-    <div th:if="${!hasCThought}">
-        <p class="section-label">Questions</p>
+    <!--
+        A consolidated thought can still be asked about. The network validates
+        itself after reconciliation and raises questions about the nodes this
+        thought produced, which arrive long after consolidation ran. Those are
+        answered here too; they are recorded rather than fed back into a stage
+        that has already happened.
+    -->
+    <div th:if="${hasOpenQuestions}">
+        <p class="section-label" th:unless="${hasCThought}">Questions</p>
+        <p class="section-label" th:if="${hasCThought}">What the network asked</p>
+        <p class="section-note" th:if="${hasCThought}">
+            The network found these by validating itself. Answering them does not
+            re-run consolidation; what you say is written straight into the graph,
+            so the gap stops being a gap. An answer already given can be given
+            again, and the newer one is what stands.
+        </p>
 
+        <!--
+            A question the network raised about itself asks for one property of
+            one node, and the values that property can take are often already
+            known. Those are offered as choices. Everything else keeps the blank
+            box, which is what an open question deserves.
+        -->
         <div th:each="q, i : ${questions}" class="question-block">
             <div class="question-label"
                  th:text="${i.index + 1} + '. ' + ${q.text}">
             </div>
-            <textarea class="question-input"
-                      th:id="'answer-' + ${q.id}"
-                      th:name="'answer-' + ${q.id}"
-                      th:text="${answers.get(q.id)}"
-                      placeholder="Your answer..."></textarea>
+
+            <div th:switch="${q.kind.name()}">
+
+                <!-- One or more of the values the ontology declares -->
+                <th:block th:case="'MULTI_CHOICE'">
+                    <div class="option-row">
+                        <button type="button" class="option-chip"
+                                th:each="option : ${q.options}"
+                                th:text="${option}"
+                                th:attr="data-question=${q.id},data-value=${option},data-multiple='true'"
+                                onclick="toggleOption(this)"></button>
+                    </div>
+                    <input type="hidden" th:id="'answer-' + ${q.id}"
+                           th:value="${answers.get(q.id)}"/>
+                </th:block>
+
+                <!-- Exactly one of them -->
+                <th:block th:case="'CHOICE'">
+                    <div class="option-row">
+                        <button type="button" class="option-chip"
+                                th:each="option : ${q.options}"
+                                th:text="${option}"
+                                th:attr="data-question=${q.id},data-value=${option},data-multiple='false'"
+                                onclick="toggleOption(this)"></button>
+                    </div>
+                    <input type="hidden" th:id="'answer-' + ${q.id}"
+                           th:value="${answers.get(q.id)}"/>
+                </th:block>
+
+                <!-- What the network already knows, offered beside a box that still takes anything -->
+                <th:block th:case="'SUGGESTION'">
+                    <div class="option-row" th:if="${!q.options.isEmpty()}">
+                        <button type="button" class="option-chip"
+                                th:each="option : ${q.options}"
+                                th:text="${option}"
+                                th:attr="data-question=${q.id},data-value=${option},data-multiple='false'"
+                                onclick="toggleOption(this)"></button>
+                    </div>
+                    <input type="text" class="question-input question-input-line"
+                           th:id="'answer-' + ${q.id}"
+                           th:value="${answers.get(q.id)}"
+                           placeholder="Or write another one..."/>
+                </th:block>
+
+                <!-- The same, where more than one of them can be true at once -->
+                <th:block th:case="'MULTI_SUGGESTION'">
+                    <div class="option-row" th:if="${!q.options.isEmpty()}">
+                        <button type="button" class="option-chip"
+                                th:each="option : ${q.options}"
+                                th:text="${option}"
+                                th:attr="data-question=${q.id},data-value=${option},data-multiple='true'"
+                                onclick="toggleOption(this)"></button>
+                    </div>
+                    <input type="text" class="question-input question-input-line"
+                           th:id="'answer-' + ${q.id}"
+                           th:value="${answers.get(q.id)}"
+                           placeholder="Pick any that apply, or write another one..."/>
+                </th:block>
+
+                <th:block th:case="'DATE'">
+                    <input type="date" class="question-input question-input-line"
+                           th:id="'answer-' + ${q.id}"
+                           th:value="${answers.get(q.id)}"/>
+                </th:block>
+
+                <th:block th:case="'NUMBER'">
+                    <input type="number" step="any" class="question-input question-input-line"
+                           th:id="'answer-' + ${q.id}"
+                           th:value="${answers.get(q.id)}"
+                           placeholder="0.00"/>
+                </th:block>
+
+                <th:block th:case="*">
+                    <textarea class="question-input"
+                              th:id="'answer-' + ${q.id}"
+                              th:name="'answer-' + ${q.id}"
+                              th:text="${answers.get(q.id)}"
+                              placeholder="Your answer..."></textarea>
+                </th:block>
+
+            </div>
         </div>
 
         <div style="display:flex;align-items:center;gap:14px;margin-top:8px">
-            <button class="btn-submit" id="btn-submit" onclick="submitAnswers()">
+            <button class="btn-submit" id="btn-submit" onclick="submitAnswers()"
+                    th:text="${hasCThought} ? 'Save answers' : 'Consolidate'">
                 Consolidate
             </button>
             <span class="stt-status" id="consolidate-status" style="display:none">consolidating...</span>
             <span class="stt-error"  id="consolidate-error"  style="display:none"></span>
         </div>
 
-        <pre class="cthought-output" id="cthought-output" style="display:none"></pre>
+        <!-- The consolidated output has its own place above once it exists. -->
+        <pre th:unless="${hasCThought}" class="cthought-output" id="cthought-output"
+             style="display:none"></pre>
     </div>
 
 </main>
@@ -67,6 +165,77 @@
 <script th:inline="javascript">
     var THOUGHT_ID = /*[[${thoughtId}]]*/ '';
     var QUESTION_IDS = /*[[${questionIds}]]*/ [];
+    var CONSOLIDATED = /*[[${hasCThought}]]*/ false;
+
+    // Whatever the user clicks ends up in the same field a typed answer would
+    // have gone into, so the submission below cannot tell the two apart and does
+    // not need to.
+
+    function answerField(questionId) {
+        return document.getElementById('answer-' + questionId);
+    }
+
+    function chipsOf(questionId) {
+        return document.querySelectorAll('.option-chip[data-question="' + questionId + '"]');
+    }
+
+    function valuesIn(questionId) {
+        var field = answerField(questionId);
+        if (!field || !field.value) {
+            return [];
+        }
+        return field.value.split(',').map(function(part) {
+            return part.trim();
+        }).filter(function(part) {
+            return part.length > 0;
+        });
+    }
+
+    /** Marks the chips that the current answer names, however it was written. */
+    function syncChips(questionId) {
+        var values = valuesIn(questionId);
+        Array.prototype.forEach.call(chipsOf(questionId), function(chip) {
+            var chosen = values.indexOf(chip.getAttribute('data-value')) >= 0;
+            chip.classList.toggle('option-chip-on', chosen);
+        });
+    }
+
+    function toggleOption(chip) {
+        var questionId = chip.getAttribute('data-question');
+        var value      = chip.getAttribute('data-value');
+        var multiple   = chip.getAttribute('data-multiple') === 'true';
+        var values     = valuesIn(questionId);
+        var at         = values.indexOf(value);
+
+        if (multiple) {
+            if (at >= 0) {
+                values.splice(at, 1);
+            } else {
+                values.push(value);
+            }
+        } else {
+            values = at >= 0 ? [] : [value];
+        }
+
+        answerField(questionId).value = values.join(', ');
+        syncChips(questionId);
+    }
+
+    // An answer given earlier is shown as it was given: the chips it named come
+    // back selected instead of the user having to recognize their own answer.
+    // Typing keeps them in step, so a suggestion written out by hand still reads
+    // as the same answer as the one clicked.
+    document.addEventListener('DOMContentLoaded', function() {
+        QUESTION_IDS.forEach(function(questionId) {
+            var field = answerField(questionId);
+            if (field) {
+                field.addEventListener('input', function() {
+                    syncChips(questionId);
+                });
+            }
+            syncChips(questionId);
+        });
+    });
 
     function submitAnswers() {
         var btn    = document.getElementById('btn-submit');
@@ -97,6 +266,12 @@
         .then(function(res) {
             if (!res.ok) {
                 throw new Error('server returned ' + res.status);
+            }
+            // Consolidation has already run for this thought, and a late answer
+            // is not a reason to run it again over the same transcript.
+            if (CONSOLIDATED) {
+                window.location.reload();
+                return;
             }
             openConsolidateStream();
         })

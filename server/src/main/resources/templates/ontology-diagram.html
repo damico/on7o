@@ -74,6 +74,11 @@
         .dnode.vocabulary rect { fill: #64748b; stroke: #94a3b8; }
         .dnode.selected rect { stroke: #fff; stroke-width: 2.5px; }
 
+        /* A node is a handle: the layout is a first guess, not the reading. */
+        .dnode { cursor: grab; }
+        .dnode.dragging { cursor: grabbing; }
+        .dnode.dragging rect { stroke: #fff; stroke-width: 2.5px; }
+
         .diagram-outer.connecting .dnode text {
             cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px;
         }
@@ -94,6 +99,7 @@
             border-radius: 6px; padding: 10px 12px; pointer-events: none;
         }
         .diagram-legend span { display: flex; align-items: center; gap: 6px; }
+        .diagram-legend .diagram-hint { color: var(--text-muted); font-style: italic; }
         .diagram-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 
         .diagram-zoom {
@@ -142,6 +148,7 @@
             <span><i style="background:#a855f7"></i>property</span>
             <span><i style="background:#10b981"></i>individual</span>
             <span><i style="background:#64748b"></i>vocabulary</span>
+            <span class="diagram-hint">drag a node to pull it out of the pile</span>
         </div>
         <div class="diagram-zoom" id="zoom-indicator">100%</div>
     </div>
@@ -294,6 +301,64 @@ window.addEventListener('mouseup', function() {
     outer.classList.remove('panning');
 });
 
+/* ── Dragging one node ─────────────────────────────────────────────
+   The layout is a guess made once, and a guess that puts two nodes on
+   top of each other cannot be argued with, only moved. Taking hold of a
+   node is how a reader answers back: pull it out of the pile and the
+   edges follow, so what connects to what can be seen instead of
+   inferred. Nothing is recomputed while dragging: the rest of the
+   picture is the reader's frame of reference and moving it under them
+   would undo the point.                                              */
+
+let dragging = null;
+let draggedFar = false;
+
+/* Which edges touch a node, so a drag redraws those and nothing else. */
+let edgesByNode = new Map();
+
+function startDrag(n, e) {
+    // While connecting, a node is a target to pick, not a thing to move.
+    if (connectMode) { e.stopPropagation(); return; }
+    e.stopPropagation();
+    e.preventDefault();
+    dragging = { n: n, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, moved: false };
+    draggedFar = false;
+    n.el.classList.add('dragging');
+}
+
+function moveNode(n, x, y) {
+    n.x = x;
+    n.y = y;
+    n.el.setAttribute('transform', 'translate(' + (n.x - n.w / 2) + ',' + (n.y - n.h / 2) + ')');
+    (edgesByNode.get(n.id) || []).forEach(refreshEdge);
+}
+
+function refreshEdge(r) {
+    r.line.setAttribute('x1', r.a.x); r.line.setAttribute('y1', r.a.y);
+    r.line.setAttribute('x2', r.b.x); r.line.setAttribute('y2', r.b.y);
+    r.text.setAttribute('x', (r.a.x + r.b.x) / 2);
+    r.text.setAttribute('y', (r.a.y + r.b.y) / 2 - 4);
+}
+
+window.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    // Screen pixels are zoom times diagram units, so a drag has to be
+    // divided by the zoom or the node runs away from the cursor.
+    const dx = (e.clientX - dragging.sx) / zoom;
+    const dy = (e.clientY - dragging.sy) / zoom;
+    if (Math.abs(dx) + Math.abs(dy) > 2) { dragging.moved = true; }
+    moveNode(dragging.n, dragging.ox + dx, dragging.oy + dy);
+});
+
+window.addEventListener('mouseup', function() {
+    if (!dragging) return;
+    dragging.n.el.classList.remove('dragging');
+    // A drag ends in a click. Opening the panel on it would mean a reader
+    // cannot move a node without also being told about it.
+    draggedFar = dragging.moved;
+    dragging = null;
+});
+
 /* ── Force-directed layout (no external library) ───────────────── */
 function layout(nodes, edges) {
     const idx = new Map(nodes.map(function(n) { return [n.id, n]; }));
@@ -358,6 +423,8 @@ function renderNode(n) {
     const g = svgEl('g');
     g.setAttribute('class', 'dnode ' + n.type);
     g.setAttribute('transform', 'translate(' + (n.x - n.w / 2) + ',' + (n.y - n.h / 2) + ')');
+    n.el = g;
+    g.addEventListener('mousedown', function(e) { startDrag(n, e); });
 
     const rect = svgEl('rect');
     rect.setAttribute('width', n.w);
@@ -370,8 +437,8 @@ function renderNode(n) {
     text.setAttribute('y', n.h / 2 + 4);
     text.setAttribute('text-anchor', 'middle');
     text.textContent = n.label;
-    text.addEventListener('mousedown', function(e) { e.stopPropagation(); });
     text.addEventListener('click', function(e) {
+        if (draggedFar) { draggedFar = false; return; }
         if (connectMode) {
             e.stopPropagation();
             handleConnectClick(n, g);
@@ -417,6 +484,7 @@ function deriveEntity(label, el) {
 function renderEdge(e, idx) {
     const a = idx.get(e.sourceId), b = idx.get(e.targetId);
     if (!a || !b) return;
+    const attached = { a: a, b: b, line: null, text: null };
 
     const g = svgEl('g');
     g.setAttribute('class', 'dedge' + (e.label === 'type' ? ' type' : ''));
@@ -426,6 +494,7 @@ function renderEdge(e, idx) {
     line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
     line.setAttribute('marker-end', 'url(#arrow)');
     g.appendChild(line);
+    attached.line = line;
 
     const text = svgEl('text');
     text.setAttribute('x', (a.x + b.x) / 2);
@@ -433,6 +502,7 @@ function renderEdge(e, idx) {
     text.setAttribute('text-anchor', 'middle');
     text.textContent = e.label;
     g.appendChild(text);
+    attached.text = text;
 
     if (e.tooltip) {
         const title = svgEl('title');
@@ -440,12 +510,18 @@ function renderEdge(e, idx) {
         g.appendChild(title);
     }
 
+    [a.id, b.id].forEach(function(id) {
+        if (!edgesByNode.has(id)) { edgesByNode.set(id, []); }
+        edgesByNode.get(id).push(attached);
+    });
+
     edgesLayer.appendChild(g);
 }
 
 function redraw(diagram) {
     edgesLayer.replaceChildren();
     nodesLayer.replaceChildren();
+    edgesByNode = new Map();
 
     const emptyLabel = document.getElementById('empty-label');
     if (!diagram.nodes.length) {

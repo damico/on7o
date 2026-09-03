@@ -179,4 +179,60 @@ class HcinRepositoryTest {
         assertThat(repository.size(HcinGraphs.SCHEMA)).isPositive();
         assertThat(repository.export(HcinGraphs.SCHEMA)).contains("Financial authority");
     }
+
+    @Test
+    void knowsWhichNamesTheVocabularyAlreadyDefines() {
+        // The entity scan reads one consolidated thought in isolation and reports
+        // terms it was used without being defined. The pipeline's own stamps look
+        // exactly like that, and asking the user what "Asserted" means is asking
+        // them about the tool rather than about their life.
+        assertThat(repository.definesTerm("Asserted")).isTrue();
+        assertThat(repository.definesTerm("hypothesized")).isTrue();
+        assertThat(repository.definesTerm("knowledgeStatus")).isTrue();
+        assertThat(repository.definesTerm("Social relationship")).isTrue();
+
+        assertThat(repository.definesTerm("Ninoska")).isFalse();
+        assertThat(repository.definesTerm("Expo Teleinfo")).isFalse();
+    }
+
+    @Test
+    void listsEveryThoughtThatMentionedANode() {
+        hcin.load(HcinGraphs.PROVENANCE, """
+                <urn:hcin:observation:o1> a hcin:Observation ;
+                    hcin:about      <urn:hcin:person:ninoska> ;
+                    hcin:thoughtId  "t-second" ;
+                    hcin:observedAt "2026-08-24T15:30:00Z"^^xsd:dateTime .
+                <urn:hcin:observation:o2> a hcin:Observation ;
+                    hcin:about      <urn:hcin:person:ninoska> ;
+                    hcin:thoughtId  "t-first" ;
+                    hcin:observedAt "2026-08-01T09:00:00Z"^^xsd:dateTime .
+                <urn:hcin:observation:o3> a hcin:Observation ;
+                    hcin:about     <urn:hcin:person:someone-else> ;
+                    hcin:thoughtId "t-other" .
+                """);
+
+        // A person on a projection is a name and a few numbers, and the way back
+        // to what was actually said is every thought that mentioned them, oldest
+        // first, not only the one that introduced them.
+        assertThat(repository.thoughtsMentioning("urn:hcin:person:ninoska"))
+                .containsExactly("t-first", "t-second");
+    }
+
+    @Test
+    void readsTheAlignmentsTheOntologyDeclares() {
+        // HCIN.md promises reuse of FOAF, PROV-O and the W3C organization
+        // vocabulary. hcin-core.ttl now says which terms are the same ones, and
+        // the pipeline reads that back instead of keeping a list in the code.
+        assertThat(repository.vocabularyAliases())
+                .containsEntry("http://xmlns.com/foaf/0.1/Person", "http://on7o.io/hcin#Person")
+                .containsEntry("http://www.w3.org/ns/org#Membership", "http://on7o.io/hcin#Membership")
+                .containsEntry("http://www.w3.org/ns/org#organization", "http://on7o.io/hcin#memberOf")
+                .containsEntry("http://www.w3.org/ns/prov#wasDerivedFrom",
+                        "http://on7o.io/hcin#wasDerivedFrom");
+
+        // A subproperty is not a synonym: rewriting every rdfs:label into
+        // hcin:label would rename classes and properties too.
+        assertThat(repository.vocabularyAliases())
+                .doesNotContainKey("http://www.w3.org/2000/01/rdf-schema#label");
+    }
 }

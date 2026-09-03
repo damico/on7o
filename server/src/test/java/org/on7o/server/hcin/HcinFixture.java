@@ -21,8 +21,14 @@ public final class HcinFixture {
     private final HcinRepository repository;
 
     public HcinFixture() throws IOException {
+        this(new HcinProperties().getEgoLabel());
+    }
+
+    /** A fixture whose ego answers to a given name, for tests about identity. */
+    public HcinFixture(String egoLabel) throws IOException {
         HcinProperties properties = new HcinProperties();
         properties.setLocation(HcinDataset.IN_MEMORY);
+        properties.setEgoLabel(egoLabel);
 
         this.dataset = new HcinDataset(properties);
         this.repository = new HcinRepository(new HcinTransactions(dataset), dataset);

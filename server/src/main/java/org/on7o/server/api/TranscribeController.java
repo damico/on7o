@@ -2,7 +2,7 @@ package org.on7o.server.api;
 
 import org.on7o.server.ingest.Thought;
 import org.on7o.server.ingest.ThoughtStore;
-import org.on7o.server.stt.Transcriber;
+import org.on7o.server.ingest.TranscriptionWorker;
 import org.on7o.server.stt.Transcription;
 import org.on7o.server.stt.TranscriptionException;
 import org.slf4j.Logger;
@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Optional;
 
 /**
@@ -36,11 +35,11 @@ public class TranscribeController {
     private static final long SSE_TIMEOUT_MS = 10 * 60 * 1000L;
 
     private final ThoughtStore store;
-    private final Transcriber transcriber;
+    private final TranscriptionWorker transcriptionWorker;
 
-    public TranscribeController(ThoughtStore store, Transcriber transcriber) {
+    public TranscribeController(ThoughtStore store, TranscriptionWorker transcriptionWorker) {
         this.store = store;
-        this.transcriber = transcriber;
+        this.transcriptionWorker = transcriptionWorker;
     }
 
     /**
@@ -69,14 +68,11 @@ public class TranscribeController {
             return emitter;
         }
 
-        Path audio = store.audioPath(thought);
-
         Thread.ofVirtual().start(() -> {
             try {
                 sendEvent(emitter, "status", "running");
 
-                Transcription t = transcriber.transcribe(audio, id);
-                store.saveTranscription(t);
+                Transcription t = transcriptionWorker.transcribe(thought);
 
                 sendEvent(emitter, "result", t.text());
                 emitter.complete();

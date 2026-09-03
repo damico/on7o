@@ -20,15 +20,21 @@
 
 hcin:InteractionShape a sh:NodeShape ;
     sh:targetClass hcin:Interaction ;
-    rdfs:comment "An interaction without a timestamp cannot contribute to proximity, which is entirely a function of when things happened." ;
+    rdfs:comment "An interaction without a timestamp cannot contribute to proximity, which is entirely a function of when things happened. That makes a missing date something to ask the user about rather than a defect: consolidation is told never to invent a date the thought did not state, so the two would otherwise contradict each other, one demanding what the other forbids." ;
+
+    sh:property [
+        sh:path     hcin:occurredAt ;
+        sh:minCount 1 ;
+        sh:severity sh:Info ;
+        sh:message  "this interaction has no date; ask when it happened, since proximity is entirely a function of when" ;
+    ] ;
 
     sh:property [
         sh:path     hcin:occurredAt ;
         sh:datatype xsd:dateTime ;
-        sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:severity sh:Violation ;
-        sh:message  "an interaction must say when it occurred, exactly once" ;
+        sh:message  "an interaction happened once, at one dateTime" ;
     ] ;
 
     sh:property [
@@ -74,10 +80,16 @@ hcinf:FinancialFlowShape a sh:NodeShape ;
 
     sh:property [
         sh:path     hcin:occurredAt ;
-        sh:datatype xsd:dateTime ;
         sh:minCount 1 ;
+        sh:severity sh:Info ;
+        sh:message  "this flow has no date; ask when it happened, or it cannot be placed in time" ;
+    ] ;
+
+    sh:property [
+        sh:path     hcin:occurredAt ;
+        sh:datatype xsd:dateTime ;
         sh:severity sh:Violation ;
-        sh:message  "a flow must say when it happened, or it cannot be placed in time" ;
+        sh:message  "the date of a flow must be a dateTime" ;
     ] ;
 
     sh:property [
@@ -92,12 +104,18 @@ hcinf:FinancialFlowShape a sh:NodeShape ;
 
     sh:property [
         sh:path      hcinf:currency ;
+        sh:minCount  1 ;
+        sh:severity  sh:Info ;
+        sh:message   "the currency of this flow is unknown; ask which one, since an amount without it cannot be compared to anything" ;
+    ] ;
+
+    sh:property [
+        sh:path      hcinf:currency ;
         sh:datatype  xsd:string ;
         sh:pattern   "^[A-Z]{3}$" ;
-        sh:minCount  1 ;
         sh:maxCount  1 ;
         sh:severity  sh:Violation ;
-        sh:message   "an amount without an ISO 4217 currency cannot be compared to anything" ;
+        sh:message   "a currency must be a single ISO 4217 code" ;
     ] ;
 
     sh:property [
@@ -220,9 +238,9 @@ hcin:ProvenanceShape a sh:NodeShape ;
 # -----------------------------------------------------------------------------
 
 hcin:QualifiedEdgeShape a sh:NodeShape ;
-    sh:targetClass hcin:Relationship, hcin:Membership,
+    sh:targetClass hcin:SocialRelationship, hcin:Membership,
                    hcinf:FinancialFlow, hcinf:FinancialAuthority ;
-    rdfs:comment "An HCIN edge is meant to say which layer a relationship lives in and which setting it belongs to. Neither can be guessed without inventing knowledge, so an absent one is reported as something to ask the user about rather than filled in." ;
+    rdfs:comment "An HCIN edge between social entities is meant to say which layer a relationship lives in and which setting it belongs to. Neither can be guessed without inventing knowledge, so an absent one is reported as something to ask the user about rather than filled in. The target is hcin:SocialRelationship and not hcin:Relationship because reconciliation mints an edge for every statement a thought makes, geography and authorship included, and neither a layer nor a setting is a question those can answer. Reporting them would be honest about the data and useless to the person meant to act on it." ;
 
     sh:property [
         sh:path     hcin:layer ;

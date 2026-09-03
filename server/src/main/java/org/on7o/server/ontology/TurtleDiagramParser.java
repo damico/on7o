@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Turns a Turtle (including RDF-star) ontology stage into an {@link OntologyDiagram}
@@ -43,6 +44,16 @@ public class TurtleDiagramParser {
     private static final Set<String> LABEL_PREDICATES = Set.of(
             "http://www.w3.org/2000/01/rdf-schema#comment",
             "http://www.w3.org/2000/01/rdf-schema#label");
+
+    /** Properties that give something the name a person would call it by. */
+    private static final Set<String> NAME_PREDICATES = Set.of(
+            "http://www.w3.org/2000/01/rdf-schema#label",
+            "http://on7o.io/hcin#label",
+            "http://xmlns.com/foaf/0.1/name",
+            "http://www.w3.org/2004/02/skos/core#prefLabel");
+
+    /** How many of the things an anonymous node points at fit in its name. */
+    private static final int ENDS_SHOWN = 2;
 
     /**
      * Parses Turtle text into a diagram. Malformed input yields an empty diagram
@@ -178,11 +189,61 @@ public class TurtleDiagramParser {
 
     private String shortLabel(Model model, Node n) {
         if (n.isBlank()) {
-            return blankId(n);
+            return anonymousLabel(model, n);
         }
         String qname = model.shortForm(n.getURI());
         int colon = qname.indexOf(':');
         return colon >= 0 ? qname.substring(colon + 1) : qname;
+    }
+
+    /**
+     * A node the thought left anonymous, named by what it says.
+     *
+     * <p>A membership written the way the W3C organization vocabulary recommends
+     * has no name of its own, and the label a parser invents for it is a hex
+     * string that means nothing to anybody. What the node is and who it joins are
+     * right there in its own statements, and that is a name a reader can use:
+     * "Membership: Ninoska / Expo Teleinfo" rather than 5d641ce11553.
+     *
+     * <p>The hex label survives only as a last resort, for a node that says
+     * nothing at all.
+     */
+    private String anonymousLabel(Model model, Node n) {
+        String type = null;
+        Map<String, String> ends = new TreeMap<>();
+
+        for (Triple t : model.getGraph().find(n, Node.ANY, Node.ANY).toList()) {
+            if (!t.getObject().isURI()) {
+                continue;
+            }
+            if (t.getPredicate().getURI().equals(RDF_TYPE)) {
+                type = shortLabel(model, t.getObject());
+            } else {
+                // Ordered by the property, so the name is the same on every read
+                // and reads the way the model does: a member before what they are
+                // a member of. The separator sorts below every character a URI can
+                // hold, so "member" really does come before "memberOf".
+                ends.put(t.getPredicate().getURI() + '\u0000' + t.getObject().getURI(),
+                        nameOf(model, t.getObject()));
+            }
+        }
+
+        String joined = ends.values().stream().limit(ENDS_SHOWN)
+                .collect(java.util.stream.Collectors.joining(" / "));
+        if (type == null) {
+            return joined.isEmpty() ? blankId(n) : joined;
+        }
+        return joined.isEmpty() ? type : type + ": " + joined;
+    }
+
+    /** What the thought calls a node, when it says, and its short form when it does not. */
+    private String nameOf(Model model, Node n) {
+        for (Triple t : model.getGraph().find(n, Node.ANY, Node.ANY).toList()) {
+            if (t.getObject().isLiteral() && NAME_PREDICATES.contains(t.getPredicate().getURI())) {
+                return t.getObject().getLiteralLexicalForm();
+            }
+        }
+        return shortLabel(model, n);
     }
 
     private String blankId(Node n) {

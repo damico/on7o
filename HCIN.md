@@ -208,6 +208,28 @@ $$
 
 O HCIN passa, portanto, a representar não apenas a existência de uma aresta, mas a **trajetória dessa aresta**. A pergunta “a relação está aumentando ou diminuindo?” deixa de exigir um único número e pode ser respondida por dimensão, contexto e intervalo temporal. Por exemplo, a confiança profissional pode crescer enquanto a proximidade emocional diminui, sem que uma mudança anule a outra.
 
+### RDF-star e a aresta como entidade:
+
+Dizer o quanto se acredita em algo é uma afirmação sobre uma afirmação, e é exatamente para isso que o RDF-star existe. O HCIN usa RDF-star nesse ponto, e apenas nesse ponto: um pensamento consolidado anota cada tripla que enuncia com o estado epistêmico e a confiança daquela tripla.
+
+```turtle
+on7o:Bob on7o:worksAt on7o:AcmeCompany .
+<< on7o:Bob on7o:worksAt on7o:AcmeCompany >>
+        on7o:knowledgeStatus on7o:Asserted ;
+        on7o:confidence      0.9 .
+```
+
+Marcar a entidade em vez da tripla não diz a mesma coisa. Uma entidade não é uma afirmação: dizer que `:Ninoska` é `Asserted` não informa qual das coisas ditas sobre ela o usuário afirmou e qual o sistema inferiu, e é a diferença entre as duas que separa o que a rede sabe do que ela supõe.
+
+O que **não** muda com isso é a aresta qualificada. Um triple term não substitui a `hcin:Relationship` descrita acima, por quatro razões, todas exigidas pelo próprio modelo:
+
+- **Identidade.** A aresta precisa ser um nó com URI para que algo possa ser dito *sobre ela*: uma observação que registra de qual pensamento ela veio, uma pergunta de clarificação que pergunta em qual camada ela vive, a resposta que preenche essa camada depois. Nada disso se pendura numa tripla citada.
+- **Validação.** As shapes SHACL que definem o que uma aresta HCIN deve dizer miram classes. Não há suporte padronizado para validar triplas citadas, e é da validação que saem as perguntas que a rede faz a si mesma.
+- **Multiplexidade.** O mesmo par de pessoas pode estar ligado em várias camadas ao mesmo tempo, cada uma com seu vetor. Uma tripla citada é um único termo: duas qualificações independentes do mesmo par colidiriam.
+- **Trajetória.** $\mathbf{w}_e(t)$ pede muitos estados da mesma aresta ao longo do tempo, e cada estado precisa existir por si.
+
+Os dois convivem com papéis distintos. **RDF-star é como um pensamento fala sobre as próprias afirmações; a aresta reificada é como a rede guarda o que passou a saber.**
+
 ### Suporte a SKOS, FOAF, SIOC, PROV-O e vocab W3C:
 
 FOAF é fornece parte da base de Person, identidade e relações sociais; e inclusive possui foaf:knows e foaf:interest, embora a representação de interesse do FOAF não seja plenamente suficiente para a proposta HCIN. Já o vocab W3C é especialmente útil nos relacionamentos profissionais previsto no HCIN, pois já modela Organization, Membership, Role, memberOf, headOf, estruturas organizacionais e duração de memberships. A própria recomendação sugere a relação n-ária Membership justamente quando é necessário representar uma pessoa que desempenha determinado papel dentro de determinada organização.

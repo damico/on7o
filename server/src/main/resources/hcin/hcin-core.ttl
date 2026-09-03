@@ -1,5 +1,9 @@
 @prefix hcin: <http://on7o.io/hcin#> .
 @prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix org:  <http://www.w3.org/ns/org#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
@@ -50,6 +54,11 @@ hcin:Relationship a owl:Class ;
     rdfs:label   "Relationship" ;
     rdfs:comment "A directed, qualified relation between two entities. An object rather than an edge, because it has a layer, a context, a validity, a provenance and a strength, and because A trusting B says nothing about B trusting A." .
 
+hcin:SocialRelationship a owl:Class ;
+    rdfs:subClassOf hcin:Relationship ;
+    rdfs:label   "Social relationship" ;
+    rdfs:comment "A relationship whose two ends are both people or organizations. The distinction earns its place because the questions HCIN asks of an edge, which relational layer it lives in and which setting it belongs to, are questions about human ties: a venue standing in a city is a relationship with no layer to name. Recorded when the edge is minted, since that is when both ends and their kinds are known." .
+
 hcin:Interaction a owl:Class ;
     rdfs:label   "Interaction" ;
     rdfs:comment "One event involving two or more participants at a point in time. Interactions are the evidence from which relational proximity is computed." .
@@ -58,9 +67,16 @@ hcin:Layer a owl:Class ;
     rdfs:label   "Relational layer" ;
     rdfs:comment "The dimension a relationship is being read in: financial, professional, family, intellectual, emotional, governance." .
 
-hcin:Financial     a hcin:Layer ; rdfs:label "Financial layer" .
-hcin:Professional  a hcin:Layer ; rdfs:label "Professional layer" .
-hcin:Organizational a hcin:Layer ; rdfs:label "Organizational layer" .
+# The layers a relationship can be read in. Named individuals rather than free
+# text, so that a question about which layer a tie lives in has an answer set the
+# ontology itself declares, and the same tie in two layers stays one tie.
+hcin:Financial      a hcin:Layer ; rdfs:label "Financial" .
+hcin:Professional   a hcin:Layer ; rdfs:label "Professional" .
+hcin:Organizational a hcin:Layer ; rdfs:label "Organizational" .
+hcin:Family         a hcin:Layer ; rdfs:label "Family" .
+hcin:Intellectual   a hcin:Layer ; rdfs:label "Intellectual" .
+hcin:Emotional      a hcin:Layer ; rdfs:label "Emotional" .
+hcin:Governance     a hcin:Layer ; rdfs:label "Governance" .
 
 hcin:source a owl:ObjectProperty ;
     rdfs:domain hcin:Relationship ; rdfs:range hcin:Entity ;
@@ -69,6 +85,10 @@ hcin:source a owl:ObjectProperty ;
 hcin:target a owl:ObjectProperty ;
     rdfs:domain hcin:Relationship ; rdfs:range hcin:Entity ;
     rdfs:label  "target" ; rdfs:comment "The entity the relationship runs to." .
+
+hcin:suggestFrom a owl:AnnotationProperty ;
+    rdfs:label   "suggest from" ;
+    rdfs:comment "Classes whose instances are plausible values of a property, offered to whoever is asked to fill it in. Not a constraint: an answer outside them is still an answer. It exists because a property with an open range, such as the setting a statement belongs to, still has candidates the network already knows, and picking one is what keeps the same setting from entering twice under two spellings." .
 
 hcin:layer a owl:ObjectProperty ;
     rdfs:range hcin:Layer ; rdfs:label "layer" .
@@ -79,7 +99,8 @@ hcin:relationType a owl:ObjectProperty ;
     rdfs:comment "What the relationship asserts, as the property it reifies. Kept as a resource rather than a name so that the original vocabulary term survives the merge." .
 
 hcin:context a owl:ObjectProperty ;
-    rdfs:label "context" ; rdfs:comment "The setting this fact belongs to." .
+    rdfs:label "context" ; rdfs:comment "The setting this fact belongs to." ;
+    hcin:suggestFrom hcin:Context, hcin:Organization .
 
 hcin:member a owl:ObjectProperty ;
     rdfs:domain hcin:Membership ; rdfs:range hcin:Person ; rdfs:label "member" .
@@ -187,3 +208,48 @@ hcin:about a owl:ObjectProperty ;
 hcin:thoughtId a owl:DatatypeProperty ;
     rdfs:range xsd:string ;
     rdfs:label "thought id" ; rdfs:comment "The on7o thought an observation came from." .
+
+# -----------------------------------------------------------------------------
+# What these terms are, in vocabularies that already exist
+# -----------------------------------------------------------------------------
+#
+# HCIN.md says the model reuses SKOS, FOAF, PROV-O and the W3C Organization
+# vocabulary. Until now it only resembled them: hcin:Membership was org:Membership
+# renamed, hcin:wasDerivedFrom was prov:wasDerivedFrom re-minted here, and nothing
+# said so. A reader of the exported graph had no way to know, and a thought
+# written in the standard terms was read as if it said nothing.
+#
+# These axioms are what make the claim checkable. They are also read back by the
+# pipeline: a consolidated thought that says foaf:Person or org:Membership is
+# understood as saying hcin:Person and hcin:Membership, because the ontology says
+# they are the same term rather than because a list in the code says so.
+#
+# Only alignments that hold in both directions are written as equivalences.
+# Where the standard term is broader, the weaker claim is made instead, and
+# where nothing standard fits, nothing is claimed: hcin:Context, hcin:Layer's
+# own members, hcin:source and hcin:target have no counterpart here on purpose.
+# SIOC is named in HCIN.md and is absent for the same reason: none of this model
+# is social-web content yet.
+
+hcin:Person       owl:equivalentClass foaf:Person .
+hcin:Organization owl:equivalentClass org:Organization , foaf:Organization .
+hcin:Membership   owl:equivalentClass org:Membership .
+hcin:Role         owl:equivalentClass org:Role .
+
+hcin:member    owl:equivalentProperty org:member .
+hcin:memberOf  owl:equivalentProperty org:organization .
+hcin:role      owl:equivalentProperty org:role .
+
+# The traceability story PROV-O was designed for, said in its own words.
+hcin:wasDerivedFrom owl:equivalentProperty prov:wasDerivedFrom .
+hcin:Interaction    rdfs:subClassOf prov:Activity .
+hcin:Observation    rdfs:subClassOf prov:Activity .
+
+# A name is a name. Kept as a subproperty of rdfs:label rather than equivalent to
+# it, because rdfs:label also names classes and properties, and hcin:label is only
+# ever what the ego calls something.
+hcin:label rdfs:subPropertyOf rdfs:label ;
+    owl:equivalentProperty foaf:name .
+
+# The relational layers are a small controlled vocabulary, which is what SKOS is.
+hcin:Layer rdfs:subClassOf skos:Concept .
