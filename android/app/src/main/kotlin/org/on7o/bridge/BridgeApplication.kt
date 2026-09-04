@@ -2,7 +2,7 @@ package org.on7o.bridge
 
 import android.app.Application
 import okhttp3.OkHttpClient
-import org.on7o.bridge.bluetooth.PairedDeviceRepository
+import org.on7o.bridge.bluetooth.BleDeviceRepository
 import org.on7o.bridge.core.capture.CaptureStore
 import org.on7o.bridge.core.sync.UploadClient
 import org.on7o.bridge.settings.SettingsRepository
@@ -20,7 +20,7 @@ class BridgeApplication : Application() {
         private set
     lateinit var settingsRepository: SettingsRepository
         private set
-    lateinit var pairedDeviceRepository: PairedDeviceRepository
+    lateinit var bleDeviceRepository: BleDeviceRepository
         private set
     lateinit var uploadClient: UploadClient
         private set
@@ -29,7 +29,7 @@ class BridgeApplication : Application() {
         super.onCreate()
         captureStore = CaptureStore(File(filesDir, "captures"))
         settingsRepository = SettingsRepository(this)
-        pairedDeviceRepository = PairedDeviceRepository(this)
+        bleDeviceRepository = BleDeviceRepository(this)
         uploadClient = UploadClient(OkHttpClient())
     }
 }

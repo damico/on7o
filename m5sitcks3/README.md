@@ -15,12 +15,14 @@ Two things about the StickS3 matter to this firmware:
 
 ## Setup
 
-Edit `on7o-capture/config.h`, the only file you should need to touch:
+The device has no Wi-Fi and no server address to configure: it only talks to
+whichever phone runs the on7o Bluetooth bridge app, which owns the internet
+leg. Edit `on7o-capture/config.h` only if you want to change the advertised
+name, the device id, or how much audio a single capture may hold:
 
 ```c
-#define ON7O_WIFI_SSID     "your-network"
-#define ON7O_WIFI_PASSWORD "your-password"
-#define ON7O_HOST          "192.168.15.92"   // printed by the server on startup
+#define ON7O_BLE_DEVICE_NAME "on7o-sticks3-01"
+#define ON7O_DEVICE_ID       "sticks3-01"
 ```
 
 ### Arduino IDE
@@ -40,38 +42,53 @@ pio run -t upload
 ## How it works
 
 ```
-button down  ->  open HTTP connection, send headers
+button down  ->  start recording into a PSRAM buffer
                  |
-                 v
-   [ mic block ] -> [ HTTP chunk ] -> server   (repeats every 32 ms)
+   [ mic block ] -> [ appended to buffer ]   (repeats every 32 ms)
                  |
-button up    ->  drain queued blocks, send terminating chunk, read status
+button up    ->  drain queued blocks, then send the whole buffer over BLE:
+                  CAPTURE_HEADER, chunked AUDIO_CHUNK frames, CAPTURE_END
 ```
 
-The upload uses **chunked transfer encoding**, so the device never has to know how long the thought will be before it starts sending, which is the whole point of push-to-talk. Audio goes out as raw PCM; the server wraps it in a WAV container, keeping the firmware free of any container bookkeeping.
+Audio is recorded fully into memory before anything leaves the device: the
+StickS3 is an ESP32-S3, which has no Bluetooth Classic radio, only BLE, and
+BLE's sustained throughput is well below the 32 kB/s a live PCM stream would
+need. Buffering avoids that limit entirely, at the cost of a short "sending"
+pause after the button is released rather than a live upload while speaking.
 
-Capture is **gapless**. M5Unified queues up to two recordings, so `audio_input.cpp` rotates three buffers: the one queued two calls ago is guaranteed to be full by the time the next `record()` returns, and can be uploaded while the microphone keeps running. `drainBlock()` then flushes what is still in flight after the button is released. Without it, the tail of every sentence is lost.
+Each frame is sent as a GATT indication and blocks until the phone confirms
+it (`ble_transport.cpp`), which gives simple, reliable flow control for the
+transfer without needing a hand-rolled acknowledgement scheme. The frame
+format itself (magic, version, message type, then header/chunk/end payloads)
+is `android/PROTOCOL.md`'s, shared with the Android bridge app; only the
+transport underneath it is BLE instead of the RFCOMM that document
+originally proposed, before it turned out this board cannot do Bluetooth
+Classic at all.
+
+Capture is **gapless**. M5Unified queues up to two recordings, so `audio_input.cpp` rotates three buffers: the one queued two calls ago is guaranteed to be full by the time the next `record()` returns, and can be appended to the capture buffer while the microphone keeps running. `drainBlock()` then flushes what is still in flight after the button is released. Without it, the tail of every sentence is lost.
 
 ### Feedback on screen
 
 | Display | Meaning |
 |---|---|
-| `on7o` / `hold to speak` | Idle, Wi-Fi up |
-| `on7o` / `no wi-fi` (orange) | Idle, no connection |
-| `REC` + seconds | Capturing and uploading |
-| `sent` (green) | Server accepted the thought |
+| `on7o` / `hold to speak` | Idle, phone connected |
+| `on7o` / `no phone` (orange) | Idle, no BLE connection |
+| `REC` + seconds | Capturing |
+| `sending` | Transferring the capture to the phone over BLE |
+| `sent` (green) | Phone confirmed the whole transfer |
 | `too short` | Under 400 ms, treated as an accidental bump, discarded |
-| `no server` / `lost link` / `http NNN` | Upload failed |
+| `no phone` / `lost link` / `send failed` | Nothing to send to, or the transfer failed |
 
 ## Configuration reference
 
 | Define | Default | Notes |
 |---|---|---|
-| `ON7O_SAMPLE_RATE` | `16000` | What speech-to-text expects; 32 kB/s on the wire |
-| `ON7O_BLOCK_SAMPLES` | `512` | 32 ms of audio, 1 kB per HTTP chunk |
+| `ON7O_SAMPLE_RATE` | `16000` | What speech-to-text expects |
+| `ON7O_BLOCK_SAMPLES` | `512` | 32 ms of audio per block pulled from the mic |
+| `ON7O_BLE_CHUNK_BYTES` | `4096` | Bytes per `AUDIO_CHUNK` frame, well under the protocol's 64 KiB ceiling |
 | `ON7O_BUTTON` | `M5.BtnA` | G11. Switch to `M5.BtnB` (G12) for the other one |
-| `ON7O_MIN_CAPTURE_MS` | `400` | Below this, discard instead of uploading |
-| `ON7O_MAX_CAPTURE_MS` | `300000` | Safety stop for a button held in a pocket |
+| `ON7O_MIN_CAPTURE_MS` | `400` | Below this, discard instead of sending |
+| `ON7O_MAX_CAPTURE_MS` | `60000` | Also bounds the PSRAM capture buffer's size (~1.9 MB at the defaults); see the comment in `config.h` for the math |
 
 ## Flashing notes
 
@@ -102,11 +119,32 @@ while True:
 
 ## Status
 
-Compiles clean against esp32 core 3.3.11 + M5Unified 0.2.19 (1.1 MB flash, 33%; 52 kB static RAM, 16%).
+Compiles clean against esp32 core 3.3.11 + M5Unified 0.2.19 + NimBLE-Arduino 2.5.1
+(738 kB flash, 22%; 40 kB static RAM, 12%).
 
-**Runs on real hardware.** A 3-second capture reached the server intact: the firmware reported `status=201 bytes=97280` and the server stored exactly 97280 bytes of PCM, as a valid 16 kHz mono WAV with speech clearly visible in the envelope.
+**Runs on real hardware, BLE included.** The earlier Wi-Fi version proved the microphone and capture
+path; that transport is gone, replaced by BLE, because the StickS3's ESP32-S3 has no Bluetooth Classic
+radio to run the originally planned RFCOMM link on. The BLE version has now sent a real push-to-talk
+capture end to end to the Android bridge app: `on7o-sticks3-01` advertises, the app connects and
+subscribes, the button press records into the PSRAM buffer, and the whole thing arrives on the phone
+byte-exact (a 59904-sample capture landed as a 119808-byte WAV, matching exactly).
 
-That first run on hardware exposed two defects, both since fixed:
+Two firmware-side bugs surfaced getting there, both fixed and both worth knowing about if this
+transport is ever touched again:
+
+- **Advertising overflow.** The device name and the 128-bit service UUID together do not fit in the
+  31-byte legacy advertising packet. `NimBLEAdvertising::enableScanResponse(true)` has to be called
+  before `setName()`/`addServiceUUID()`, or NimBLE silently drops the UUID from what actually gets
+  broadcast, and Android's UUID-filtered scan finds nothing.
+- **Indications are not chunked automatically.** A GATT indication is exactly one ATT packet; sending
+  more than (negotiated MTU - 3) bytes in one `indicate()` call fails outright. `AUDIO_CHUNK` frames
+  now split across as many MTU-sized indications as needed, each confirmed before the next goes out.
+- **NimBLE's own success code for a confirmed indication is `BLE_HS_EDONE` (14), not 0.** Status 0 only
+  means "sent, not yet acknowledged" and never reaches `onStatus` for indications; treating any nonzero
+  code as failure made every successful send look like an error.
+
+Two more defects were found and fixed on the earlier Wi-Fi version's first hardware run, both still
+apply here since they are about the microphone, not the transport:
 
 - **Clipping.** M5Unified defaults `magnification` to 16, which drove peaks to 32752 of a 32768 full scale. Clipped audio costs speech-to-text accuracy. Now 4, via `ON7O_MIC_MAGNIFICATION`.
 - **A dead first second.** The ES8311 emits exact zeros for close to a second after `M5.Mic.begin()`. Starting the microphone per capture therefore swallowed the first word of every thought. It now starts once at boot and stays running.

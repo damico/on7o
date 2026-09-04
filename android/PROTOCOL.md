@@ -1,27 +1,81 @@
 # on7o Bluetooth bridge protocol (Android to StickS3)
 
-> PROVISIONAL. Not yet implemented or verified against real StickS3 firmware.
-> This document is a design proposal made unilaterally from the Android side,
-> because the firmware side of this link does not exist yet (see README.md's
-> architecture diagram: StickS3 to phone over Bluetooth is a future
-> milestone). Review and adjust before writing the ESP32-side implementation.
+> Verified against real hardware: a real StickS3 flashed with this firmware
+> has sent a full push-to-talk capture to the Android app over this exact
+> protocol, confirmed frame by frame, and the WAV landed intact on the phone.
+> Two real bugs were found and fixed getting here, both worth knowing about
+> if this is ever reimplemented: a 128-bit service UUID plus the device name
+> together overflow the 31-byte legacy advertising packet unless scan
+> response is explicitly enabled, and a GATT indication is exactly one ATT
+> packet with no fragmentation, so anything larger than (ATT MTU - 3) bytes
+> has to be split into multiple indications by hand.
 
 ## Transport
 
-Bluetooth Classic, RFCOMM (SPP), UUID `00001101-0000-1000-8000-00805F9B34FB`
-(the standard SPP UUID; Arduino's `BluetoothSerial` library registers this by
-default when a device calls `SerialBT.begin("name")`).
+Bluetooth Low Energy (BLE), GATT. This document originally proposed
+Bluetooth Classic (RFCOMM/SPP), before it turned out the StickS3's ESP32-S3
+has no Bluetooth Classic radio at all, only BLE 5.0. Only the original
+ESP32 (not S2/S3/C3/C6) has classic BT.
 
-The StickS3 is the RFCOMM server (as `BluetoothSerial::begin` makes it by
-default); the Android phone is the RFCOMM client, initiating the connection
-via `device.createRfcommSocketToServiceRecord(SPP_UUID)` against a bonded
-`BluetoothDevice` the user picked in Settings. Pairing (bonding) itself
-happens out-of-band, through Android's system Bluetooth settings, before this
-app is involved at all. This app never scans or initiates pairing.
+One private, project-specific service (not adopted by the Bluetooth SIG):
 
-The connection is opened once and kept open across multiple captures. There
-is no per-capture handshake at the socket level: capture boundaries are
-expressed entirely by the framing below.
+| UUID | Purpose |
+|---|---|
+| `8b6c9f10-4b3e-4d2a-9f0a-1f6c7a2e0a01` | Service |
+| `8b6c9f11-4b3e-4d2a-9f0a-1f6c7a2e0a01` | Capture characteristic, `INDICATE` only |
+
+The StickS3 is the GATT peripheral (server), advertising this service under
+the name `on7o-sticks3-01` (`ble_transport.cpp`); the Android phone is the
+GATT central, discovering it with a short scan filtered on the service UUID
+(`BleDeviceRepository.scan`), letting the user pick a device once in
+Settings, and connecting to its remembered address afterward
+(`device.connectGatt(...)`, `BluetoothDevice.TRANSPORT_LE`). There is no
+bonding or pairing step: the link is unauthenticated, matching the server's
+own "LAN-only, no auth" stance for this milestone.
+
+**Record-then-send, not live streaming.** BLE's sustained throughput is well
+below the 32 kB/s a live 16 kHz/16-bit mono PCM stream would need. The stick
+records a whole push-to-talk capture into a PSRAM buffer first
+(`capture_buffer.cpp`) and only starts sending once the button is released,
+so the transport never has to keep up with the microphone in real time.
+
+**Delivery is indication-based, not notification-based.** Every frame is
+sent as a GATT indication (`characteristic.indicate(...)` on the firmware
+side) and the firmware blocks until the phone's stack confirms it
+(`ble_transport.cpp`'s `sendReliable`/`indicateOnceAndWait`) before sending
+the next one. Plain notifications are not acknowledged at the GATT layer and
+are the more usual choice for BLE streaming, but indications give simple,
+built-in flow control for a bulk transfer where a dropped packet would
+otherwise corrupt the frame stream, at a cost in raw speed a multi-second
+"sending" pause easily absorbs.
+
+**MTU is negotiated, not assumed, and one indication is one ATT packet.**
+The phone requests `247` bytes after connecting
+(`BluetoothCaptureService`'s `requestMtu`); the firmware asks NimBLE for the
+connection's actual negotiated peer MTU (`NimBLEServer::getPeerMTU`) before
+every send rather than assuming a fixed size. This matters beyond
+performance: a GATT indication is not fragmented and reassembled the way an
+HTTP chunk is, so a single `indicate()` call larger than (ATT MTU - 3) bytes
+is rejected outright. A `CAPTURE_HEADER` frame is small enough to always fit
+in one indication regardless of MTU, but `AUDIO_CHUNK` frames are not, and
+have to be split into several MTU-sized indications, each confirmed before
+the next goes out; the split is purely a transport-level detail invisible to
+`FrameReader`, which only ever sees the reassembled byte stream.
+
+**NimBLE reports a confirmed indication's status as `BLE_HS_EDONE`, not 0.**
+This is the non-obvious one: for a plain notification, status 0 means "sent
+successfully" and is the terminal event. For an indication, status 0 only
+means "sent, not yet acknowledged" and NimBLE-Arduino's server code filters
+that event out before it ever reaches `onStatus`; the real, peer-confirmed
+completion arrives with status `BLE_HS_EDONE` (14). Treating "code != 0" as
+failure, the natural first guess, makes every single successful indication
+look like an error.
+
+The connection is opened once and kept open across multiple captures, same
+as the RFCOMM design this replaced: there is no per-capture handshake at the
+transport level, capture boundaries are expressed entirely by the framing
+below, which is unchanged from the original RFCOMM-based proposal. A frame's
+own layout never depended on what was underneath it.
 
 ## Byte order
 
@@ -106,14 +160,15 @@ the same stream begins a new, independent capture.
 
 Sent by the phone after it finishes writing the capture to local storage,
 not after it syncs to the server, which may happen much later, offline
-tolerantly, which is the whole point of this architecture. A future firmware
-may ignore this entirely in v1; it exists so a future firmware has a hook to
-give the user on-device feedback ("phone got it") distinct from "server
-processed it," without conflating the two.
+tolerantly, which is the whole point of this architecture. Not implemented
+by either side in this cut: the phone has no writable characteristic to send
+it on, and the firmware has no code path expecting it. It exists so a future
+revision has a hook to give the user on-device feedback ("phone got it")
+distinct from "server processed it," without conflating the two.
 
 ## Error handling / stream loss
 
-If the RFCOMM connection drops mid-capture (no CAPTURE_END was ever
+If the BLE connection drops mid-capture (no CAPTURE_END was ever
 received), the phone discards the partial audio file rather than uploading
 a truncated or corrupt WAV, mirroring `ThoughtStore.store()`'s own
 delete-partial-directory-on-failure behavior on the server.

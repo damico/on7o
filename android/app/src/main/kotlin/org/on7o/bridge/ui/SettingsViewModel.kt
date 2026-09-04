@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.on7o.bridge.BridgeApplication
-import org.on7o.bridge.bluetooth.PairedDevice
+import org.on7o.bridge.bluetooth.DiscoveredDevice
 
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -20,8 +20,11 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val _pairedDeviceAddress = MutableStateFlow<String?>(null)
     val pairedDeviceAddress: StateFlow<String?> = _pairedDeviceAddress.asStateFlow()
 
-    private val _bondedDevices = MutableStateFlow<List<PairedDevice>>(emptyList())
-    val bondedDevices: StateFlow<List<PairedDevice>> = _bondedDevices.asStateFlow()
+    private val _discoveredDevices = MutableStateFlow<List<DiscoveredDevice>>(emptyList())
+    val discoveredDevices: StateFlow<List<DiscoveredDevice>> = _discoveredDevices.asStateFlow()
+
+    private val _scanning = MutableStateFlow(false)
+    val scanning: StateFlow<Boolean> = _scanning.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -30,11 +33,15 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             bridgeApp.settingsRepository.pairedDeviceAddress.collect { _pairedDeviceAddress.value = it }
         }
-        refreshBondedDevices()
     }
 
-    fun refreshBondedDevices() {
-        _bondedDevices.value = bridgeApp.pairedDeviceRepository.bondedDevices()
+    fun scanForDevices() {
+        if (_scanning.value) return
+        viewModelScope.launch {
+            _scanning.value = true
+            _discoveredDevices.value = bridgeApp.bleDeviceRepository.scan()
+            _scanning.value = false
+        }
     }
 
     fun saveServerBaseUrl(value: String) {

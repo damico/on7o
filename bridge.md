@@ -1,10 +1,13 @@
 # bridge
 
-Handoff from the session of **2026-09-03**, merging two parallel threads: moving transcription off
+Handoff from the sessions of **2026-09-03** and **2026-09-04**, four threads: moving transcription off
 the request thread and letting the network ask about its own gaps (from another machine, 2026-09-01),
-and scaffolding the Android bridge app (this machine, 2026-09-02).
+scaffolding the Android bridge app (this machine, 2026-09-02), building the StickS3's BLE firmware and
+proving the whole Bluetooth bridge end to end on real hardware for the first time (this machine, later
+2026-09-03), and diagnosing why a proven capture took roughly ten times its own length to transfer, then
+making the transfer survive the phone's screen locking in a pocket (this machine, 2026-09-04).
 
-Branch: **`main`**
+Branch: **`feature/sticks3-ble-bridge`**
 
 ---
 
@@ -19,11 +22,13 @@ Branch: **`main`**
 | 5 | LLM interpretation of thoughts | **Done**, rThought + qThought + cThought, plus entity derivation |
 | 6 | Ontology diagrams per stage | **Done**, hand-rolled inline SVG |
 | 7 | HCIN financial projection | **Done**, all 16 issues |
-| 8 | Android bridge app | **Scaffolded this session**, builds and unit-tests green, not yet run against real hardware |
+| 8 | Bluetooth bridge (StickS3 BLE + Android app) | **Done**, verified on real hardware: a real capture recorded on the stick landed byte-exact on the phone over BLE |
 
-The loop `capture -> transmit -> store -> transcribe -> interpret` is proven end to end on real hardware.
-The Bluetooth leg (`M5StickS3 --Bluetooth--> Android --Internet--> server`) has an Android side now;
-the StickS3 firmware still only speaks Wi-Fi.
+The loop `capture -> transmit -> store -> transcribe -> interpret` is proven end to end on real hardware
+over Wi-Fi. The Bluetooth leg (`M5StickS3 --Bluetooth--> Android --Internet--> server`) is now proven
+too, stick to phone: a real push-to-talk capture went from the StickS3's BLE firmware to the Android
+app's local storage, byte-exact. What has not been proven yet is the phone's own sync to a server over
+the internet leg with a real server address configured, only against `core`'s test fixtures.
 
 ---
 
@@ -113,7 +118,84 @@ it: `945c2a8` for issues 1 to 16, `6e61879` for 17 and 18.
 
 ---
 
-## What was added this session
+## What was added later this session: BLE firmware, verified on real hardware
+
+Picking up right where the Android scaffold left off: the user asked to build the StickS3's Bluetooth
+firmware so the simplified local loop (stick -> phone -> LAN -> notebook server) could actually be
+tested. Exploring the firmware surfaced the blocker the earlier RFCOMM decision had missed: the
+StickS3's ESP32-S3 has no Bluetooth Classic radio, only BLE. With the user confirming record-then-send
+over live streaming, both the firmware and the Android app's Bluetooth layer were rewritten for BLE,
+and then, for the first time this project has had the hardware to do it, actually tested end to end on
+a real StickS3 and a real Samsung phone connected over adb (USB for the stick's serial port, wireless
+debugging for the phone once the USB port was needed for the stick).
+
+```
+m5sitcks3/on7o-capture/
++-- ble_transport.h/.cpp   (NimBLE GATT peripheral: advertise, indicate, MTU-aware chunking)
++-- capture_buffer.h/.cpp  (PSRAM buffer for one whole record-then-send capture)
++-- ble_protocol.h         (frame constants, mirrors BridgeProtocol.kt by hand)
+    uploader.h/.cpp, WiFi, secrets.h.example: removed, the phone owns the internet leg now
+android/app/.../bluetooth/
++-- BleDeviceRepository.kt        (replaces PairedDeviceRepository: BLE scan, not bonded devices)
++-- GattNotificationInputStream.kt (bridges GATT callbacks into a blocking InputStream for FrameReader)
+    BluetoothCaptureService.kt: RFCOMM socket -> BluetoothGatt central, rewritten
+```
+
+Getting a real capture through exposed four bugs no amount of code review would have caught, three in
+the new BLE code and one that was always there waiting for two connection attempts to race:
+
+- **A double-connect race.** `BluetoothCaptureService.onStartCommand` launched a new
+  `connectionLoop()` coroutine on every start command with no guard. Two taps on Connect (which is
+  exactly what happened while testing) started two loops racing on the same `gatt` field, one calling
+  `close()` on the connection the other had just opened mid-setup. Fixed with a `Job` guard: a second
+  start command while one loop is already active is now a no-op.
+- **Advertising overflow.** The device name and the 128-bit service UUID together do not fit in the
+  31-byte legacy advertising packet (3 + 17 + 18 = 38 bytes). Confirmed with this machine's own
+  `bluetoothctl info`: the stick was advertising its name but no UUID at all, so the Android app's
+  UUID-filtered scan found nothing. `NimBLEAdvertising::enableScanResponse(true)`, called before
+  `setName()`, was the missing line; NimBLE moves the name into scan response data once that is on,
+  freeing the primary packet for the UUID.
+- **Indications are not chunked automatically.** A GATT indication is exactly one ATT packet, not a
+  fragmented stream the way an HTTP chunk is. `AUDIO_CHUNK` frames up to 4 KiB were being handed to
+  `indicate()` in one call, which simply fails for anything bigger than the negotiated MTU allows. Once
+  the `CAPTURE_HEADER` frame (small enough to always fit) started confirming while every `AUDIO_CHUNK`
+  failed, this became the obvious next suspect. Fixed by querying `NimBLEServer::getPeerMTU()` and
+  splitting every send into MTU-sized indications, each confirmed before the next goes out; frame
+  boundaries stay a pure property of the byte stream, invisible to the chunking.
+- **The real root cause: `BLE_HS_EDONE` is success, not failure.** Even a 24-byte `CAPTURE_HEADER`,
+  nowhere near any MTU limit, kept failing after the chunking fix. Reading NimBLE's own
+  `ble_gatts_indicate_rx_rsp` (the handler for a genuine peer confirmation) showed it reports status
+  `BLE_HS_EDONE` (14), not 0, and that status-0 events for indications are filtered out by the library
+  before `onStatus` ever fires, since they only mean "sent, not yet acknowledged." The code was
+  treating every successful confirmation as an error. One-line fix: `code == 0 || code == BLE_HS_EDONE`.
+
+With all four fixed, a real button press produced `ble send finished: ok=1 samples=59904` on the
+stick's serial output and a `119808 bytes` capture (exactly `59904 * 2`) on the phone. Configuring the
+server's LAN address in Settings and tapping Sync now closed the loop the rest of the way: the server
+logged `captured 20260903T220524Z-1fdd65e1 from sticks3-01 (3744 ms, 119852 bytes)`, wrote a valid
+16 kHz mono PCM WAV to disk, and the capture in the app turned `Synced`. Transcription failed only
+because whisper.cpp was not running, exactly the non-blocking failure the async-transcription work
+from earlier this session was built to tolerate. This is the first time any part of this project's
+Bluetooth design has run against real hardware, and the first time the whole architecture diagram in
+`README.md`, stick to phone to server, has been proven end to end rather than in two separate halves.
+
+A smaller, cosmetic issue found along the way: the stick's idle screen only redraws on a state
+transition, so "no phone" stayed on screen after the phone actually connected, until the next button
+press or result timeout forced a redraw. Fixed by checking `ble::connected()` against what is currently
+shown once per loop iteration while idle, redrawing only when it changes.
+
+Also added, at the user's request: a placeholder (`http://192.168.1.10:8080`) on the Settings screen's
+server URL field, so it is obvious what to type without reading the helper text first.
+
+### Verification actually run
+
+Real hardware, not emulation: firmware built and flashed with `pio run -t upload` (manual download mode
+per this file's own instructions), Android app built with `:app:assembleDebug` and installed via `adb
+install -r` on a physical Samsung SM-S711B. `:core:test` was not rerun this half of the session since
+none of `core` changed. `ble_transport.cpp`'s diagnostic `Serial.printf` calls (indicate rejected /
+timed out / confirmed-with-error, subscribe events, negotiated MTU) were left in deliberately: they are
+what made each of the four bugs above findable, and they only print on the error/one-per-connect paths,
+not in a hot loop.
 
 ### Transcription no longer happens inside the ingest request
 
@@ -216,6 +298,67 @@ distinction.
 on. It now reads `172.25.234.30`, which is what the server prints on startup.
 The Wi-Fi SSID in `secrets.h` did not change. This is the third time the address
 has been edited by hand, which is the argument for mDNS getting made for us.
+
+---
+
+## What was fixed this session (2026-09-04): a ten-times-realtime transfer, and the locked screen
+
+The previous session proved a capture could reach the phone byte-exact over BLE, but that capture was
+short. The very next real recording exposed what the short test never had a chance to hit: roughly ten
+seconds of transfer for every second recorded, which invalidates push-to-talk as a design regardless of
+how faithful the bytes are once they arrive. Replacing the stop-and-wait `indicate()` per `AUDIO_CHUNK`
+packet with unconfirmed `notify()` fixed short captures immediately, but anything past ten to twelve
+seconds still failed outright, which is what this session actually chased down, on real hardware with
+the stick's serial output and the phone's `logcat` captured side by side.
+
+```
+m5sitcks3/on7o-capture/ble_transport.cpp
++-- notifyOnce() gated by a small in-flight credit window (kMaxInFlightNotifications), released only
+    when onStatus() reports a notification's transmission actually finished
++-- indicateOnceAndWait() gained the same local-rejection retry notifyOnce() already had
+m5sitcks3/platformio.ini
++-- CONFIG_BT_NIMBLE_MSYS1_BLOCK_COUNT raised from the library default of 12 to 64
+android/app/.../bluetooth/BluetoothCaptureService.kt
++-- requestConnectionPriority(CONNECTION_PRIORITY_HIGH) once the GATT connection is established
+```
+
+- **`BLE_HS_ENOMEM`, not silence, was the actual signal.** `onStatus()` already existed, but only to log
+  a failure no code path acted on. It fired on nearly every `AUDIO_CHUNK` notification, and decoding the
+  status code against NimBLE's own header (`ble_hs.h`) showed code 6 is `BLE_HS_ENOMEM`: the stack's
+  shared `MSYS_1` mbuf pool, 12 blocks of 256 bytes by default, exhausted by a sustained flood of
+  notifications the pool was never sized for. `nimconfig.h` names this exact scenario in its own comment.
+  Raising the pool to 64 blocks was the decisive fix; a smaller in-flight window on top of it kept the
+  flood from immediately refilling it.
+- **`indicate()` had no retry; `notify()` did.** `CAPTURE_HEADER` and `CAPTURE_END` go out as confirmed
+  indications, and the single local-rejection check on `indicate()` had no retry loop at all, unlike the
+  30-attempt retry `notify()` already carried. Under a congested queue this is exactly where a capture
+  that had otherwise gone perfectly would fail, at the very last frame. Giving `indicate()` the same
+  retry evened out the asymmetry, and turned out to be the one change the locked-screen case needed most.
+- **A locked screen changes the BLE connection interval, and there is no API to stop it.** Once the
+  phone's screen goes dark, Android renegotiates a slower connection interval regardless of any earlier
+  `CONNECTION_PRIORITY_HIGH` request, which is enforced by the platform, not something an app can opt
+  out of. The fix is not fighting that renegotiation; it is making the firmware patient enough to keep
+  working at whatever rate the link actually allows, which the retry and credit changes above already
+  did.
+- **The firmware's own `ok=1` was never proof the phone kept the capture.** `sendCapture()` only confirms
+  `CAPTURE_HEADER` and `CAPTURE_END`; a lost `AUDIO_CHUNK` notification is caught solely by the phone
+  comparing received bytes against `CAPTURE_END`'s declared total, silently, on the Android side. A
+  capture the stick reported as sent could still have been discarded on the phone without either side
+  saying so out loud. Every fix in this session was verified against that byte-exact comparison, not
+  against the stick's own screen.
+- **Samsung's own battery management can force-stop the app, separately from Doze.** Turning on
+  unrestricted battery usage for the app through Settings triggered `Force stopping org.on7o.bridge`
+  from `com.android.settings` itself, visible in `logcat`. The service restarted on its own afterward,
+  but it is worth knowing that changing this setting is not itself a no-op.
+
+### Verification actually run
+
+Real hardware throughout, diagnosed rather than guessed at: the stick's serial output and the phone's
+`logcat` captured concurrently during every test round. Screen-on: three back-to-back captures of 22 to
+25 seconds each, all landing byte-exact (`pcmBytes` in `capture.json` matching the stick's own reported
+sample count exactly). Screen locked, phone in a pocket for several minutes first: two captures, both
+byte-exact, pulled off the phone with `adb shell run-as org.on7o.bridge` (there is no playback screen in
+the app yet) and played back to confirm the audio itself is intact, not just the byte count.
 
 ---
 
@@ -648,35 +791,35 @@ sections later. It now uses `hcin:layer` and `hcin:validFrom`.
 
 ## Open items carried forward
 
-**StickS3 firmware still only speaks Wi-Fi.** The Android bridge app has no Bluetooth peer to talk to
-yet. `android/PROTOCOL.md` is a provisional protocol proposed unilaterally from the Android side and
-needs review before the ESP32 side is written.
+**`CAPTURE_ACK` (0x04) still unimplemented on both sides.** `PROTOCOL.md` always said this one was
+optional for v1; nothing about the debugging this session needed it, but it would give the stick a way
+to show "phone got it" distinct from "server processed it."
 
-**Android app untested against real hardware and unwalked in the emulator.** Build and unit tests are
-green; the Bluetooth service, the Settings device picker, and the Home capture list have not been
-exercised on a running app yet.
+**The stray 0-byte `Pending` captures from the debugging session are still in the phone's local
+storage.** Harmless (they just never sync, `UploadClient` would try and fail against whatever
+capturedAt/format they hold), but worth clearing before the next real test so the capture list is not
+cluttered with them.
 
 **Transcription latency is unmeasured on a GPU.** 21.7 s for 4 s of audio on
 CPU no longer blocks the device, but it does mean a thought is pending for half a
 minute before it can be interpreted.
-
-**`ON7O_HOST` hardcoded.** mDNS would remove the reflash-on-IP-change cycle, and the address has now
-been edited by hand three times. Doubly relevant now: the Android app's server URL is a runtime
-setting precisely to avoid the same problem on the phone side.
 
 **Server unauthenticated.** No auth, no TLS, CORS open. Deliberate for LAN milestone.
 
 **Test coverage is still narrow.** `WavHeader`, `PcmFormat.durationMs`,
 `ThoughtStore` path traversal and `ThoughtInterpreter` parsing remain untested.
 
+**The app has no way to play a capture back.** Verifying this session's fixes meant pulling `audio.wav`
+off the phone with `adb` each time; the capture list only shows an id and a byte count.
+
 ---
 
 ## Suggested next step
 
-Implement the Bluetooth side of the StickS3 firmware against `android/PROTOCOL.md`, so the bridge app
-has a real peer to connect to, and prove the simplified local loop end to end: stick over Bluetooth to
-the Android app, over the local Wi-Fi network, to a server run on a notebook. That is the next session's
-starting point.
+The simplified local loop (stick -> Bluetooth -> Android -> Wi-Fi -> server) is proven end to end;
+run whisper.cpp alongside the server so a synced capture actually gets transcribed too, not just
+stored. Beyond that, a real, non-test thought through the whole pipeline, capture to interpretation, is
+the natural next milestone now that the device side actually works.
 
 Separately, on the HCIN-FIN track: run a real thought through the whole thing with a live API key. Everything is
 proven against a deterministic interpreter, which proves the pipeline and says

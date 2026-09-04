@@ -1,11 +1,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Connect to an already-bonded StickS3 over classic Bluetooth (RFCOMM). No
-         BLUETOOTH_SCAN: this app never discovers devices, it only connects to
-         ones the user already paired through the system Bluetooth settings. -->
+    <!-- The StickS3 (ESP32-S3) has no Bluetooth Classic radio, only BLE, so this
+         app is a BLE central: it scans for the stick's advertised service and
+         connects over GATT, rather than picking from already-bonded devices.
+         neverForLocation avoids pulling in a location permission on API 31+,
+         since scan results are only ever used to find our own device, never to
+         infer where the user is; API < 31 requires the location permission
+         regardless, as a platform quirk of BLE scanning on those versions. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
