@@ -360,6 +360,19 @@ sample count exactly). Screen locked, phone in a pocket for several minutes firs
 byte-exact, pulled off the phone with `adb shell run-as org.on7o.bridge` (there is no playback screen in
 the app yet) and played back to confirm the audio itself is intact, not just the byte count.
 
+### `run.sh`: one command for whisper.cpp and the server together
+
+Starting both processes by hand, in the right order, with the right key exported, was the last bit of
+friction before the loop above could actually be exercised end to end again. `run.sh`, at the repo root,
+starts `whisper-server` in the background, waits for its port before starting the Spring Boot server in
+the foreground, and stops `whisper-server` on exit (`Ctrl+C` or otherwise) so nothing outlives the shell
+that started it.
+
+The OpenAI key is read from the sibling `../bolivia` project's `.env`, not from `on7o`'s own, on purpose:
+that is where the working key already lives on this machine, and the script's whole point is one place
+that key is written down. `server/.env` is still sourced first, for `OPENAI_MODEL`; only the key itself
+is always taken from `bolivia`.
+
 ---
 
 ## The HCIN-FIN track
